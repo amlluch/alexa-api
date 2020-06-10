@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "alexa_api"
+version = "0.1.0"
+description = "app for connecting IoT devices to Alexa"
+authors = ["Alfonso Lluch <amlluch@gmail.com>"]
+readme = "README.md"
+include = ["README.md"]
+repository = "https://github.com/amlluch/alexa-api"
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3 :: Only"
+]
+
+
+[tool.poetry.dependencies]
+python = "^3.7.1"
+boto = "^2.49.0"
+kink = "0.3.1"
+ask-sdk-core = "^1.13.0"
+
+[tool.poetry.dev-dependencies]
+black = "=19.10b0"
+mypy = "^0.730.0"
+pytest = "^4.5"
+pytest-coverage = "^0.0"
+python-lambda-local = "^0.1.12"
+pyyaml = "^5.2"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

@@ -1,0 +1,160 @@
+service: alexa-api
+package:
+  exclude:
+    - ./**/**
+  excludeDevDependencies: false
+  include:
+    - alexa_api/**
+
+provider:
+  name: aws
+  runtime: python3.7
+  stage: ${opt:stage, "develop"}
+  stackName: ${self:service}
+  environment:
+    ENVIRONMENT: ${self:custom.environment}
+    LOG_LEVEL: ${self:custom.logLevel}
+    STAGE: ${self:custom.environment}
+    DB_DEVICES_TABLE: ${self:custom.databaseTables.devicesTable}
+    DB_INTENTS_TABLE: ${self:custom.databaseTables.dialogsTable}
+  apiName: ${self:service}
+  apiKeys:
+    - ${self:service}
+
+plugins:
+  - serverless-plugin-composed-vars
+  - serverless-pseudo-parameters
+  - serverless-aws-resource-names
+  - serverless-python-requirements
+  - serverless-alexa-skills
+  - serverless-kms-grants
+
+custom:
+  environment: ${opt:stage, "develop"}
+  branch: ${opt:branch, 'develop'}
+  databaseTables:
+    devicesTable: ${self:custom.serviceName}.devices
+    dialogsTable: ${self:custom.serviceName}.dialogs
+  pythonRequirements:
+    dockerizePip: true
+    usePoetry: true
+    noDeploy:
+      - awscli
+      - black
+      - boto3
+      - botocore
+      - mypy
+      - pre-commit
+      - pytest
+      - pytest-coverage
+    layer:
+      name: AlexaApiPythonLayer
+      description: Python Lambda layer for alexa-api
+      compatibleRuntimes:
+        - python3.7
+    useDownloadCache: false
+    useStaticCache: false
+  output:
+    file: ${env:DEPLOYMENT_INFO, 'deployment.toml'}
+  serverless-aws-resource-names:
+    source: mapping.json
+    variables:
+      functionPrefix: alexa-api${env:FEATURE_BRANCH_UNDERSCORED, ''}
+  tracing:
+    lambda: true
+    apiGateway: true
+  tags:
+    service: ${self:service}
+  dashboard:
+    lambda:
+      enabled: true
+  alexa:
+    clientId: ${ssm.${self:custom.region}:/resource/alexa/client-id~true}
+    clientSecret: ${ssm.${self:custom.region}:/resource/alexa/client-secret~true}
+    vendorId: ${ssm.${self:custom.region}:/resource/alexa/vendor-id~true}
+    localServerPort: 9500
+
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - xray:PutTraceSegments
+        - xray:PutTelemetryRecords
+        - xray:GetSamplingRules
+        - xray:GetSamplingTargets
+        - xray:GetSamplingStatisticSummaries
+      Resource: "*"
+    - Effect: Allow
+      Action:
+        - lambda:InvokeFunction
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - execute-api:Invoke
+      Resource: '*'
+
+functions:
+  hello_world:
+    description: Hello World
+    module: alexa_api/controller
+    handler: alexa_api.controller.hello_world
+    layers:
+      - {Ref: PythonRequirementsLambdaLayer}
+    events:
+      - http:
+          path: /hello
+          method: get
+          private: true
+
+  skill_handler:
+    description: End point para la intents
+    module: alexa_api/controller
+    handler: alexa_api.controller.skill_handler
+    layers:
+      - {Ref: PythonRequirementsLambdaLayer}
+    events:
+      - alexaSkill: amzn1.ask.skill.e9533954-285e-4996-aadf-ca1d531d9e65
+
+resources:
+  Resources:
+    AlexaApiDevicesTable:
+      Type: AWS::DynamoDB::Table
+      DeletionPolicy: Retain
+      Properties:
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:custom.databaseTables.devicesTable}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: device_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: by_device_id
+            KeySchema:
+              - AttributeName: device_id
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+    AlexaApiDialogsTable:
+      Type: AWS::DynamoDB::Table
+      DeletionPolicy: Retain
+      Properties:
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:custom.databaseTables.dialogsTable}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: intent_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: by_intent_id
+            KeySchema:
+              - AttributeName: intent_id
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
