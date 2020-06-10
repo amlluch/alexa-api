@@ -13,6 +13,8 @@ logger.setLevel(logging.INFO)
 
 
 class LaunchRequestHandler(AbstractRequestHandler):
+    def __init__(self, alexa_repository: AlexaRepository) -> None:
+        self.alexa_repository = alexa_repository
     """Handler for Skill Launch."""
 
     def can_handle(self, handler_input: HandlerInput) -> bool:
@@ -20,12 +22,12 @@ class LaunchRequestHandler(AbstractRequestHandler):
         return ask_utils.is_request_type("LaunchRequest")(handler_input)
 
     def handle(self, handler_input: HandlerInput) -> Response:
-        speak_output = "Bienvenido. Quieres encender o apagar la piscina, el riego de arriba, el riego de abajo o la zona chill out?"
+        dialog = self.alexa_repository.get_dialog("LaunchRequest")
 
         return (
             handler_input.response_builder
-                .speak(speak_output)
-                .ask(speak_output)
+                .speak(dialog.speak)
+                .ask(dialog.ask)
                 .response
         )
 
@@ -77,6 +79,8 @@ class ApagaPiscinaIntent(AbstractRequestHandler):
 
 
 class HelpIntentHandler(AbstractRequestHandler):
+    def __init__(self, alexa_repository: AlexaRepository) -> None:
+        self.alexa_repository = alexa_repository
     """Handler for Help Intent."""
 
     def can_handle(self, handler_input: HandlerInput) -> bool:
@@ -84,15 +88,16 @@ class HelpIntentHandler(AbstractRequestHandler):
         return ask_utils.is_intent_name("AMAZON.HelpIntent")(handler_input)
 
     def handle(self, handler_input: HandlerInput) -> Response:
+        dialog = self.alexa_repository.get_dialog("AMAZON.HelpIntent")
 
-        speak_output = "Esta aplicación te permite controlar distintos dispositivos del jardín. Puedes encender o apagar la piscina, el riego de arriba, el riego de abajo y la zona chill out."
-        ask_output = "Qué quieres hacer?"
         return (
-            handler_input.response_builder.speak(speak_output).ask(ask_output).response
+            handler_input.response_builder.speak(dialog.speak).ask(dialog.ask).response
         )
 
 
 class CancelOrStopIntentHandler(AbstractRequestHandler):
+    def __init__(self, alexa_repository: AlexaRepository) -> None:
+        self.alexa_repository = alexa_repository
     """Single handler for Cancel and Stop Intent."""
 
     def can_handle(self, handler_input: HandlerInput) -> bool:
@@ -102,10 +107,9 @@ class CancelOrStopIntentHandler(AbstractRequestHandler):
         ) or ask_utils.is_intent_name("AMAZON.StopIntent")(handler_input)
 
     def handle(self, handler_input: HandlerInput) -> Response:
+        dialog = self.alexa_repository.get_dialog("AMAZON.CancelIntent")
 
-        speak_output = "Hasta luego MariCarmen!"
-
-        return handler_input.response_builder.speak(speak_output).response
+        return handler_input.response_builder.speak(dialog.speak).response
 
 
 class SessionEndedRequestHandler(AbstractRequestHandler):
@@ -123,6 +127,8 @@ class SessionEndedRequestHandler(AbstractRequestHandler):
 
 
 class IntentReflectorHandler(AbstractRequestHandler):
+    def __init__(self, alexa_repository: AlexaRepository) -> None:
+        self.alexa_repository = alexa_repository
     """The intent reflector is used for interaction model testing and debugging.
     It will simply repeat the intent the user said. You can create custom handlers
     for your intents by defining them above, then also adding them to the request
@@ -134,18 +140,18 @@ class IntentReflectorHandler(AbstractRequestHandler):
         return ask_utils.is_request_type("IntentRequest")(handler_input)
 
     def handle(self, handler_input: HandlerInput) -> Response:
-
-        intent_name = ask_utils.get_intent_name(handler_input)
-        speak_output = "Disparaste " + intent_name + "."
+        dialog = self.alexa_repository.get_dialog("IntentRequest")
 
         return (
-            handler_input.response_builder.speak(speak_output)
-            # .ask("add a reprompt if you want to keep the session open for the user to respond")
-            .response
+            handler_input.response_builder.speak(dialog.speak).ask(dialog.ask).response
+            if dialog.ask
+            else handler_input.response_builder.speak(dialog.speak).response
         )
 
 
 class CatchAllExceptionHandler(AbstractExceptionHandler):
+    def __init__(self, alexa_repository: AlexaRepository) -> None:
+        self.alexa_repository = alexa_repository
     """Generic error handling to capture any syntax or routing errors. If you receive an error
     stating the request handler chain is not found, you have not implemented a handler for
     the intent being invoked or included it in the skill builder below.
@@ -156,13 +162,10 @@ class CatchAllExceptionHandler(AbstractExceptionHandler):
 
     def handle(self, handler_input: HandlerInput, exception: Exception) -> Response:
         logger.error(exception, exc_info=True)
-
-        speak_output = (
-            "Lo siento. Tengo problemas entendiendo lo que pides. Inténtalo de nuevo"
-        )
+        dialog = self.alexa_repository.get_dialog("Exception")
 
         return (
-            handler_input.response_builder.speak(speak_output)
-            .ask(speak_output)
+            handler_input.response_builder.speak(dialog.speak)
+            .ask(dialog.ask)
             .response
         )

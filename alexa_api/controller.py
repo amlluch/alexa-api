@@ -17,15 +17,15 @@ def skill_handler(event: LambdaEvent, context: LambdaContext, alexa_repository: 
 
     sb = SkillBuilder()
 
-    sb.add_request_handler(LaunchRequestHandler())
+    sb.add_request_handler(LaunchRequestHandler(alexa_repository))
     sb.add_request_handler(EnciendePiscinaIntent(alexa_repository))
     sb.add_request_handler(ApagaPiscinaIntent(alexa_repository))
-    sb.add_request_handler(HelpIntentHandler())
-    sb.add_request_handler(CancelOrStopIntentHandler())
+    sb.add_request_handler(HelpIntentHandler(alexa_repository))
+    sb.add_request_handler(CancelOrStopIntentHandler(alexa_repository))
     sb.add_request_handler(SessionEndedRequestHandler())
-    sb.add_request_handler(IntentReflectorHandler())
+    sb.add_request_handler(IntentReflectorHandler(alexa_repository))
 
-    sb.add_exception_handler(CatchAllExceptionHandler())
+    sb.add_exception_handler(CatchAllExceptionHandler(alexa_repository))
 
     lambda_handler = sb.lambda_handler()
     return lambda_handler(event, context)
