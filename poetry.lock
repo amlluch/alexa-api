@@ -121,6 +121,18 @@ version = ">=1.20,<1.26"
 
 [[package]]
 category = "main"
+description = "BSON codec for Python"
+name = "bson"
+optional = false
+python-versions = "*"
+version = "0.5.10"
+
+[package.dependencies]
+python-dateutil = ">=2.4.0"
+six = ">=1.9.0"
+
+[[package]]
+category = "main"
 description = "Python package for providing Mozilla's CA Bundle."
 name = "certifi"
 optional = false
@@ -502,7 +514,7 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["jaraco.itertools", "func-timeout"]
 
 [metadata]
-content-hash = "370ef85ff8b0ff34eb71c2d7e77e80e335141aa47a415dd19dd598e26ee8de61"
+content-hash = "fb340f4a01a588eff4768341281955630c1a926e8b82b5200234cf541db0e853"
 python-versions = "^3.7.1"
 
 [metadata.files]
@@ -545,6 +557,9 @@ boto3 = [
 botocore = [
     {file = "botocore-1.16.25-py2.py3-none-any.whl", hash = "sha256:66a92cc8cb070483d1c013748a96b9bf76cfb8dbcba9ffd942dae749e432afe1"},
     {file = "botocore-1.16.25.tar.gz", hash = "sha256:b55b3acab42b58c24481a9fbb33d53fb7d8d03dfc0338af0132f6c5010006d0d"},
+]
+bson = [
+    {file = "bson-0.5.10.tar.gz", hash = "sha256:d6511b2ab051139a9123c184de1a04227262173ad593429d21e443d6462d6590"},
 ]
 certifi = [
     {file = "certifi-2020.4.5.2-py2.py3-none-any.whl", hash = "sha256:9cd41137dc19af6a5e03b630eefe7d1f458d964d406342dd3edf625839b944cc"},

@@ -28,6 +28,7 @@ plugins:
   - serverless-python-requirements
   - serverless-alexa-skills
   - serverless-kms-grants
+  - serverless-iam-roles-per-function
 
 custom:
   environment: ${opt:stage, "develop"}
@@ -111,6 +112,17 @@ functions:
     handler: alexa_api.controller.skill_handler
     layers:
       - {Ref: PythonRequirementsLambdaLayer}
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.dialogsTable}*
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.dialogsTable}/index/*
     events:
       - alexaSkill: amzn1.ask.skill.e9533954-285e-4996-aadf-ca1d531d9e65
 

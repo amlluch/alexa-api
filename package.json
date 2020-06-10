@@ -2,7 +2,8 @@
   "name": "alexa-api",
   "version": "1.0.0",
   "dependencies": {
-    "serverless": "^1.71.1"
+    "serverless": "^1.71.1",
+    "serverless-iam-roles-per-function": "^2.0.2"
   },
   "devDependencies": {
     "serverless-alexa-skills": "^0.1.0",
