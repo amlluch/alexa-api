@@ -33,7 +33,9 @@ class Device:
             yield key, value
 
     def serialize(self) -> Generator[Tuple[str, Any], None, None]:
-        device_properties = {key: value for key, value in self.__dict__.items() if value is not None}
+        device_properties = {
+            key: value for key, value in self.__dict__.items() if value is not None
+        }
         for key, value in device_properties.items():
             if key == "device_id":
                 value = str(self.device_id)

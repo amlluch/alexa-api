@@ -1,13 +1,27 @@
-
 from alexa_api.types import LambdaContext, LambdaEvent, LambdaResponse
 from ask_sdk_core.skill_builder import SkillBuilder
 from typing import Dict, Any
 from kink import inject
 import json
 
-from alexa_api.intents.alexa_service import LaunchRequestHandler, HelpIntentHandler, CancelOrStopIntentHandler, SessionEndedRequestHandler, IntentReflectorHandler, CatchAllExceptionHandler, EnciendePiscinaIntent, ApagaPiscinaIntent
+from alexa_api.intents.alexa_service import (
+    LaunchRequestHandler,
+    HelpIntentHandler,
+    CancelOrStopIntentHandler,
+    SessionEndedRequestHandler,
+    IntentReflectorHandler,
+    CatchAllExceptionHandler,
+    EnciendePiscinaIntent,
+    ApagaPiscinaIntent,
+)
 from alexa_api.intents.alexa_repository import AlexaRepository
-from alexa_api.devices.service import DevicesService, CreateDeviceRequest, GetDeviceRequest, UpdateDeviceRequest, DeleteDeviceRequest
+from alexa_api.devices.service import (
+    DevicesService,
+    CreateDeviceRequest,
+    GetDeviceRequest,
+    UpdateDeviceRequest,
+    DeleteDeviceRequest,
+)
 from alexa_api.serverless import serverless
 
 
@@ -16,7 +30,9 @@ def hello_world(event: LambdaEvent, context: LambdaContext) -> LambdaResponse:
 
 
 @inject
-def skill_handler(event: LambdaEvent, context: LambdaContext, alexa_repository: AlexaRepository) -> Dict[str, Any]:
+def skill_handler(
+    event: LambdaEvent, context: LambdaContext, alexa_repository: AlexaRepository
+) -> Dict[str, Any]:
 
     sb = SkillBuilder()
 
@@ -39,10 +55,14 @@ def hello_iot(event: LambdaEvent, context: LambdaContext) -> None:
 
 
 @inject
-def create_device(event: LambdaEvent, context: LambdaContext, devices_service: DevicesService) -> LambdaResponse:
+def create_device(
+    event: LambdaEvent, context: LambdaContext, devices_service: DevicesService
+) -> LambdaResponse:
     body = json.loads(event["body"])
 
-    request = CreateDeviceRequest(body["name"], body.get("description"), body["position"], body["GPIO"])
+    request = CreateDeviceRequest(
+        body["name"], body.get("description"), body["position"], body["GPIO"]
+    )
 
     device_resource = devices_service.create(request)
 
@@ -51,7 +71,9 @@ def create_device(event: LambdaEvent, context: LambdaContext, devices_service: D
 
 @serverless
 @inject
-def get_device(event: LambdaEvent, context: LambdaContext, devices_service: DevicesService) -> LambdaResponse:
+def get_device(
+    event: LambdaEvent, context: LambdaContext, devices_service: DevicesService
+) -> LambdaResponse:
     request = GetDeviceRequest(event["pathParameters"]["device_id"])
     device_resource = devices_service.get(request)
 
@@ -60,17 +82,27 @@ def get_device(event: LambdaEvent, context: LambdaContext, devices_service: Devi
 
 @serverless
 @inject
-def get_device_list(event: LambdaEvent, context: LambdaContext, devices_service: DevicesService) -> LambdaResponse:
+def get_device_list(
+    event: LambdaEvent, context: LambdaContext, devices_service: DevicesService
+) -> LambdaResponse:
     return {"statusCode": 200, "body": json.dumps(devices_service.get_list())}
 
 
 @serverless
 @inject
-def update_device(event: LambdaEvent, context: LambdaContext, devices_service: DevicesService) -> LambdaResponse:
+def update_device(
+    event: LambdaEvent, context: LambdaContext, devices_service: DevicesService
+) -> LambdaResponse:
     device_id = event["pathParameters"]["device_id"]
     body = json.loads(event["body"])
 
-    request = UpdateDeviceRequest(device_id, body.get("name"), body.get("description"), body.get("position"), body.get("GPIO"))
+    request = UpdateDeviceRequest(
+        device_id,
+        body.get("name"),
+        body.get("description"),
+        body.get("position"),
+        body.get("GPIO"),
+    )
     device_resource = devices_service.update(request)
 
     return {"statusCode": 200, "body": json.dumps(dict(device_resource))}
@@ -78,7 +110,9 @@ def update_device(event: LambdaEvent, context: LambdaContext, devices_service: D
 
 @serverless
 @inject
-def delete_device(event: LambdaEvent, context: LambdaContext, devices_service: DevicesService) -> LambdaResponse:
+def delete_device(
+    event: LambdaEvent, context: LambdaContext, devices_service: DevicesService
+) -> LambdaResponse:
     request = DeleteDeviceRequest(event["pathParameters"]["device_id"])
     devices_service.delete(request)
 

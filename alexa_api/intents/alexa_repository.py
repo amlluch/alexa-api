@@ -8,20 +8,20 @@ from alexa_api.intents.alexa_data import Dialog
 
 @runtime_checkable
 class IAlexaRepository(Protocol):
-
-    def get_dialog(self,  intent_name: str) -> Dialog:
+    def get_dialog(self, intent_name: str) -> Dialog:
         ...
 
 
 @inject(alias=IAlexaRepository)
 class AlexaRepository(IAlexaRepository):
-
     def __init__(self, dialogs_table: Any):
         self.table = dialogs_table
 
-    def get_dialog(self,  intent_name: str) -> Dialog:
+    def get_dialog(self, intent_name: str) -> Dialog:
         condition = conditions.Key("intent_id").eq(str(intent_name))
-        result = self.table.query(IndexName="by_intent_id", KeyConditionExpression=condition)
+        result = self.table.query(
+            IndexName="by_intent_id", KeyConditionExpression=condition
+        )
 
         if result["ResponseMetadata"]["HTTPStatusCode"] not in range(200, 300):
             raise AlexaRepositoryError("error occurred when retrieving dialog details")
@@ -33,5 +33,5 @@ class AlexaRepository(IAlexaRepository):
             id=item["id"],
             intent_id=item["intent_id"],
             speak=item["speak"],
-            ask=item.get("ask")
+            ask=item.get("ask"),
         )

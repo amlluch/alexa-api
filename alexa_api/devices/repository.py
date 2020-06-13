@@ -11,7 +11,6 @@ from alexa_api.errors import RepositoryError, RecordNotFound
 
 @runtime_checkable
 class IDevicesRepository(Protocol):
-
     def insert(self, device: Device) -> None:
         ...
 
@@ -43,7 +42,9 @@ class DevicesRepository(IDevicesRepository):
         try:
             self.table.put_item(Item=dict(device.serialize()))
         except ClientError as e:
-            raise AWSError(f"AWS error {e.response['Error']['Code']} inserting {str(device.device_id)}") from e
+            raise AWSError(
+                f"AWS error {e.response['Error']['Code']} inserting {str(device.device_id)}"
+            ) from e
 
     def get(self, device_id: ObjectId) -> Device:
         condition = conditions.Key("device_id").eq(str(device_id))
@@ -75,19 +76,23 @@ class DevicesRepository(IDevicesRepository):
                 ReturnValues="ALL_NEW",
             )
         except ClientError as e:
-            raise AWSError(f"AWS error {e.response['Error']['Code']} updating record {str(device_id)}") from e
+            raise AWSError(
+                f"AWS error {e.response['Error']['Code']} updating record {str(device_id)}"
+            ) from e
 
     def delete(self, device_id: ObjectId) -> None:
         try:
-            self.table.delete_item(
-                Key={"device_id": str(device_id)}
-            )
+            self.table.delete_item(Key={"device_id": str(device_id)})
         except ClientError as e:
-            raise AWSError(f"AWS error {e.response['Error']['Code']} updating record {str(device_id)}") from e
+            raise AWSError(
+                f"AWS error {e.response['Error']['Code']} updating record {str(device_id)}"
+            ) from e
 
     def position_exists(self, position: int) -> Optional[ObjectId]:
         condition = conditions.Key("position").eq(position)
-        result = self.table.query(IndexName="by_position", KeyConditionExpression=condition)
+        result = self.table.query(
+            IndexName="by_position", KeyConditionExpression=condition
+        )
 
         if result["ResponseMetadata"]["HTTPStatusCode"] not in range(200, 300):
             raise RepositoryError("error occurred when retrieving device details")
@@ -124,5 +129,5 @@ class DevicesRepository(IDevicesRepository):
             description=item.get("description"),
             position=int(item["position"]),
             GPIO=int(item["GPIO"]),
-            status=item.get("status")
+            status=item.get("status"),
         )

@@ -43,9 +43,11 @@ class UpdateDeviceRequest:
     name: Optional[str]
     description: Optional[str]
     position: Optional[int]
-    GPIO:Optional[int]
+    GPIO: Optional[int]
 
-    def __init__(self, device_id: str, name: str, description: str, position: str, gpio: str):
+    def __init__(
+        self, device_id: str, name: str, description: str, position: str, gpio: str
+    ):
         self.device_id = ObjectId(device_id)
         self.name = name
         self.description = description
@@ -67,7 +69,6 @@ class DeleteDeviceRequest:
 
 @runtime_checkable
 class IDevicesService(Protocol):
-
     def create(self, request: CreateDeviceRequest) -> Device:
         ...
 
@@ -80,7 +81,7 @@ class IDevicesService(Protocol):
     def update(self, request: UpdateDeviceRequest) -> Device:
         ...
 
-    def delete(self,  request: DeleteDeviceRequest) -> None:
+    def delete(self, request: DeleteDeviceRequest) -> None:
         ...
 
 
@@ -94,10 +95,14 @@ class DevicesService(IDevicesService):
 
         existing_position = self.devices_repository.position_exists(request.position)
         if existing_position:
-            raise RecordExists(f"this position is already used by device {existing_position}")
+            raise RecordExists(
+                f"this position is already used by device {existing_position}"
+            )
         existing_gpio = self.devices_repository.position_exists(request.GPIO)
         if existing_gpio:
-            raise RecordExists(f"this GPIO is already used by device {existing_position}")
+            raise RecordExists(
+                f"this GPIO is already used by device {existing_position}"
+            )
 
         self.devices_repository.insert(device)
         return device
@@ -106,17 +111,28 @@ class DevicesService(IDevicesService):
         return self.devices_repository.get(request.device_id)
 
     def get_list(self) -> Dict:
-        return {"devices": [dict(device) for device in self.devices_repository.get_list()]}
+        return {
+            "devices": [dict(device) for device in self.devices_repository.get_list()]
+        }
 
     def update(self, request: UpdateDeviceRequest) -> Device:
         if request.position:
-            existing_position_device = self.devices_repository.position_exists(request.position)
-            if existing_position_device and existing_position_device != request.device_id:
-                raise RecordExists(f"this position is already used by device {existing_position_device}")
+            existing_position_device = self.devices_repository.position_exists(
+                request.position
+            )
+            if (
+                existing_position_device
+                and existing_position_device != request.device_id
+            ):
+                raise RecordExists(
+                    f"this position is already used by device {existing_position_device}"
+                )
         if request.GPIO:
             existing_gpio_device = self.devices_repository.gpio_exists(request.GPIO)
             if existing_gpio_device and existing_gpio_device != request.device_id:
-                raise RecordExists(f"this GPIO is already used by device {existing_gpio_device}")
+                raise RecordExists(
+                    f"this GPIO is already used by device {existing_gpio_device}"
+                )
 
         actual_device = self.devices_repository.get(request.device_id)
         if not actual_device:
@@ -126,7 +142,7 @@ class DevicesService(IDevicesService):
         self.devices_repository.update(new_device)
         return new_device
 
-    def delete(self,  request: DeleteDeviceRequest) -> None:
+    def delete(self, request: DeleteDeviceRequest) -> None:
         self.devices_repository.delete(request.device_id)
 
     @staticmethod
