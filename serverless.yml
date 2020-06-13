@@ -17,6 +17,13 @@ provider:
     STAGE: ${self:custom.environment}
     DB_DEVICES_TABLE: ${self:custom.databaseTables.devicesTable}
     DB_INTENTS_TABLE: ${self:custom.databaseTables.dialogsTable}
+    S3_CERTIFICATES: ${self:custom.certificatesBucket}
+    IOT_CA_ROOT: ${self:custom.certs.caRoot}
+    IOT_PRIV_PEM: ${self:custom.certs.privatePem}
+    IOT_CERT_PEM: ${self:custom.certs.certificatePem}
+    IOT_CLIENT_ID: ${self:custom.iot.clientId}
+    IOT_ENDPOINT: ${self:custom.iot.endpoint}
+    IOT_PORT: ${self:custom.iot.port}
   apiName: ${self:service}
   apiKeys:
     - ${self:service}
@@ -29,6 +36,7 @@ plugins:
   - serverless-alexa-skills
   - serverless-kms-grants
   - serverless-iam-roles-per-function
+  - serverless-s3-deploy
 
 custom:
   environment: ${opt:stage, "develop"}
@@ -74,6 +82,16 @@ custom:
     clientSecret: ${ssm.${self:custom.region}:/resource/alexa/client-secret~true}
     vendorId: ${ssm.${self:custom.region}:/resource/alexa/vendor-id~true}
     localServerPort: 9500
+  assets:
+    auto: true
+    targets:
+      - bucket: ${self:custom.certificatesBucket}
+        files:
+          - source: certificates/
+            globs:
+              - '**/*.pem'
+              - '**/*.crt'
+              - '**/*.key'
 
   iamRoleStatements:
     - Effect: Allow
@@ -106,8 +124,120 @@ functions:
           method: get
           private: true
 
+  hello_iot:
+    description: Hello World for IoT
+    module: alexa_api/controller
+    handler: alexa_api.controller.hello_iot
+    layers:
+      - {Ref: PythonRequirementsLambdaLayer}
+    events:
+      - iot:
+          name: 'devices_update_events'
+          sql: "SELECT VALUE state.changed as state, device_name, device_id FROM '$aws/things/pool/shadow/update' WHERE state.changed <> 'Undefined' "
+          description: 'My IoT Event Description'
+
+  create_device:
+   description: Endpoint for creating a new device
+   module: alexa_api/controller
+   handler: alexa_api.controller.create_device
+   layers:
+     - {Ref: PythonRequirementsLambdaLayer}
+   iamRoleStatements:
+    - Effect: Allow
+      Action:
+       - dynamodb:Scan
+       - dynamodb:Query
+       - dynamodb:PutItem
+      Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
+    - Effect: Allow
+      Action:
+        - dynamodb:Scan
+        - dynamodb:Query
+      Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}/index/*
+   events:
+    - http:
+        path: /devices
+        method: post
+
+  update_device:
+    description: Endpoint for updating devices
+    module: alexa_api/controller
+    handler: alexa_api.controller.update_device
+    layers:
+      - {Ref: PythonRequirementsLambdaLayer}
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+          - dynamodb:Query
+          - dynamodb:UpdateItem
+        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}/index/*
+    events:
+      - http:
+          path: /devices/{device_id}
+          method: put
+
+  delete_device:
+    description: Endpoint for deleting a device
+    module: alexa_api/controller
+    handler: alexa_api.controller.delete_device
+    layers:
+      - {Ref: PythonRequirementsLambdaLayer}
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:DeleteItem
+        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
+    events:
+      - http:
+          path: /devices/{device_id}
+          method: delete
+
+  get_device:
+    description: Enpoint for getting device values
+    module: alexa_api/controller
+    handler: alexa_api.controller.get_device
+    layers:
+      - {Ref: PythonRequirementsLambdaLayer}
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}/index/*
+    events:
+      - http:
+          path: /devices/{device_id}
+          method: get
+
+  get_device_list:
+    description: List of active devices
+    module: alexa_api/controller
+    handler: alexa_api.controller.get_device_list
+    layers:
+      - {Ref: PythonRequirementsLambdaLayer}
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
+    events:
+      - http:
+          path: /devices
+          method: get
+
   skill_handler:
-    description: End point para la intents
+    description: Alexa skill controller
     module: alexa_api/controller
     handler: alexa_api.controller.skill_handler
     layers:
@@ -135,18 +265,26 @@ resources:
         BillingMode: PAY_PER_REQUEST
         TableName: ${self:custom.databaseTables.devicesTable}
         AttributeDefinitions:
-          - AttributeName: id
-            AttributeType: S
           - AttributeName: device_id
             AttributeType: S
+          - AttributeName: position
+            AttributeType: N
+          - AttributeName: GPIO
+            AttributeType: N
         KeySchema:
-          - AttributeName: id
+          - AttributeName: device_id
             KeyType: HASH
         GlobalSecondaryIndexes:
-          - IndexName: by_device_id
+          - IndexName: by_position
             KeySchema:
-              - AttributeName: device_id
+              - AttributeName: position
                 KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+          - IndexName: by_GPIO
+            KeySchema:
+                - AttributeName: GPIO
+                  KeyType: HASH
             Projection:
               ProjectionType: ALL
     AlexaApiDialogsTable:
@@ -170,3 +308,9 @@ resources:
                 KeyType: HASH
             Projection:
               ProjectionType: ALL
+
+    S3Bucket:
+      Type: AWS::S3::Bucket
+      DeletionPolicy: Retain
+      Properties:
+        BucketName: ${self:custom.certificatesBucket}

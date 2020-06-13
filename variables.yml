@@ -3,3 +3,12 @@ deploymentDomain: services.io.anonvpn.net
 serviceName: alexa-api
 logLevel: DEBUG
 region: ${opt:region, "us-east-1"}
+certificatesBucket: ${self:custom.serviceName}-${self:custom.environment}-certs
+certs:
+  caRoot: AmazonRootCA1.pem
+  privatePem: private.pem.key
+  certificatePem: certificate.pem.crt
+iot:
+  clientId: ${self:custom.serviceName}-${self:custom.environment}
+  endpoint: a1wtmy6kdne4mp-ats.iot.us-east-1.amazonaws.com
+  port: 8883
