@@ -24,6 +24,7 @@ provider:
     IOT_CLIENT_ID: ${self:custom.iot.clientId}
     IOT_ENDPOINT: ${self:custom.iot.endpoint}
     IOT_PORT: ${self:custom.iot.port}
+    IOT_THING_NAME: ${self:custom.iot.thingName}
   apiName: ${self:service}
   apiKeys:
     - ${self:service}
@@ -124,17 +125,33 @@ functions:
           method: get
           private: true
 
-  hello_iot:
+  sns_dispatcher:
     description: Hello World for IoT
     module: alexa_api/controller
-    handler: alexa_api.controller.hello_iot
+    handler: alexa_api.controller.sns_dispatcher
     layers:
       - {Ref: PythonRequirementsLambdaLayer}
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - s3:ListBucket
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}
+      - Effect: "Allow"
+        Action:
+          - s3:GetObject
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
+      - Effect: "Allow"
+        Action:
+          - SNS:Publish
+          - SNS:SetTopicAttributes
+        Resource: arn:aws:sns:#{AWS::Region}:#{AWS::AccountId}:DeviceChanged
+    environment:
+      SNS_ARN: arn:aws:sns:#{AWS::Region}:#{AWS::AccountId}:DeviceChanged
     events:
       - iot:
-          name: 'devices_update_events'
-          sql: "SELECT VALUE state.changed as state, device_name, device_id FROM '$aws/things/pool/shadow/update' WHERE state.changed <> 'Undefined' "
-          description: 'My IoT Event Description'
+          name: 'iot_to_sns_dispatcher'
+          sql: "SELECT state, action, device_name, device_id FROM '$aws/things/pool/shadow/update' "
+          description: 'Gets all IoT events and resend them as a SNS message'
 
   create_device:
    description: Endpoint for creating a new device
@@ -154,6 +171,14 @@ functions:
         - dynamodb:Scan
         - dynamodb:Query
       Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}/index/*
+    - Effect: "Allow"
+      Action:
+        - s3:ListBucket
+      Resource: arn:aws:s3:::${self:custom.certificatesBucket}
+    - Effect: "Allow"
+      Action:
+        - s3:GetObject
+      Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
    events:
     - http:
         path: /devices
@@ -177,6 +202,14 @@ functions:
           - dynamodb:Scan
           - dynamodb:Query
         Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}/index/*
+      - Effect: "Allow"
+        Action:
+          - s3:ListBucket
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}
+      - Effect: "Allow"
+        Action:
+          - s3:GetObject
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
     events:
       - http:
           path: /devices/{device_id}
@@ -193,6 +226,14 @@ functions:
         Action:
           - dynamodb:DeleteItem
         Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
+      - Effect: "Allow"
+        Action:
+          - s3:ListBucket
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}
+      - Effect: "Allow"
+        Action:
+          - s3:GetObject
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
     events:
       - http:
           path: /devices/{device_id}
@@ -215,6 +256,14 @@ functions:
           - dynamodb:Scan
           - dynamodb:Query
         Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}/index/*
+      - Effect: "Allow"
+        Action:
+          - s3:ListBucket
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}
+      - Effect: "Allow"
+        Action:
+          - s3:GetObject
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
     events:
       - http:
           path: /devices/{device_id}
@@ -231,10 +280,62 @@ functions:
         Action:
           - dynamodb:Scan
         Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
+      - Effect: "Allow"
+        Action:
+          - s3:ListBucket
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}
+      - Effect: "Allow"
+        Action:
+          - s3:GetObject
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
     events:
       - http:
           path: /devices
           method: get
+
+  rpi_simulator:
+    description: test
+    module: alexa_api/controller
+    handler: alexa_api.controller.rpi_simulator
+    layers:
+      - {Ref: PythonRequirementsLambdaLayer}
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - s3:ListBucket
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}
+      - Effect: "Allow"
+        Action:
+          - s3:GetObject
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
+    events:
+      - iot:
+          name: 'require_change_events'
+          sql: "SELECT state, action, device_name, device_id FROM '$aws/things/pool/shadow/update' WHERE action = 'desired' "
+          description: 'Alexa asks to change device status'
+
+  hello_sns:
+    description: sns test
+    module: alexa_api/controller
+    handler: alexa_api.controller.hello_sns
+    layers:
+      - {Ref: PythonRequirementsLambdaLayer}
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - s3:ListBucket
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}
+      - Effect: "Allow"
+        Action:
+          - s3:GetObject
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
+    events:
+      - sns:
+          arn: !Ref SNSTopic
+          topicName: DeviceChanged
+          filterPolicy:
+            action:
+              - changed
 
   skill_handler:
     description: Alexa skill controller
@@ -253,6 +354,14 @@ functions:
           - dynamodb:Scan
           - dynamodb:Query
         Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.dialogsTable}/index/*
+      - Effect: "Allow"
+        Action:
+          - s3:ListBucket
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}
+      - Effect: "Allow"
+        Action:
+          - s3:GetObject
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
     events:
       - alexaSkill: amzn1.ask.skill.e9533954-285e-4996-aadf-ca1d531d9e65
 
@@ -314,3 +423,9 @@ resources:
       DeletionPolicy: Retain
       Properties:
         BucketName: ${self:custom.certificatesBucket}
+
+    SNSTopic:
+      Type: AWS::SNS::Topic
+      DeletionPolicy: Retain
+      Properties:
+        TopicName: DeviceChanged

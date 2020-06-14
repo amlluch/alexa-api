@@ -3,6 +3,7 @@ from ask_sdk_core.skill_builder import SkillBuilder
 from typing import Dict, Any
 from kink import inject
 import json
+import boto3
 
 from alexa_api.intents.alexa_service import (
     LaunchRequestHandler,
@@ -23,6 +24,7 @@ from alexa_api.devices.service import (
     DeleteDeviceRequest,
 )
 from alexa_api.serverless import serverless
+from alexa_api.iot.service import IotService
 
 
 def hello_world(event: LambdaEvent, context: LambdaContext) -> LambdaResponse:
@@ -50,10 +52,13 @@ def skill_handler(
     return lambda_handler(event, context)
 
 
-def hello_iot(event: LambdaEvent, context: LambdaContext) -> None:
-    print("I received an event :", event)
+@serverless
+@inject
+def sns_dispatcher(event: LambdaEvent, context: LambdaContext, iot_service:  IotService) -> None:
+    iot_service.dispatch_sns(event)
 
 
+@serverless
 @inject
 def create_device(
     event: LambdaEvent, context: LambdaContext, devices_service: DevicesService
@@ -117,3 +122,19 @@ def delete_device(
     devices_service.delete(request)
 
     return {"statusCode": 204, "body": ""}
+
+
+@serverless
+@inject
+def rpi_simulator(
+    event: Dict, context: LambdaContext, iot_service: IotService
+):
+    iot_service.activate_device(event)
+
+
+@serverless
+@inject
+def hello_sns(
+    event: LambdaEvent, context: LambdaContext, iot_service: IotService
+):
+    print("SNS arrived :", event)

@@ -12,3 +12,4 @@ iot:
   clientId: ${self:custom.serviceName}-${self:custom.environment}
   endpoint: a1wtmy6kdne4mp-ats.iot.us-east-1.amazonaws.com
   port: 8883
+  thingName: pool
