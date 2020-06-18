@@ -1,7 +1,7 @@
 import boto3
 from kink import di
 from os import environ
-from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTShadowClient
+from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 
 di["dynamo_db"] = boto3.resource(
     "dynamodb", region_name=environ.get("AWS_REGION", "us-east-1")
@@ -15,11 +15,10 @@ bucket = s3.Bucket(environ.get('S3_CERTIFICATES'))
 for key in bucket.objects.all():
     s3.Object(environ.get('S3_CERTIFICATES'), key.key).download_file(f"/tmp/{key.key}")
 
-myAWSIoTMQTTShadowClient = AWSIoTMQTTShadowClient(environ.get("IOT_CLIENT_ID", "AWSIoT"))
+myAWSIoTMQTTShadowClient = AWSIoTMQTTClient(environ.get("IOT_CLIENT_ID", "AWSIoT"))
 myAWSIoTMQTTShadowClient.configureEndpoint(environ.get("IOT_ENDPOINT"), int(environ.get("IOT_PORT")))
 
 myAWSIoTMQTTShadowClient.configureCredentials(f"/tmp/{environ.get('IOT_CA_ROOT')}", f"/tmp/{environ.get('IOT_PRIV_PEM')}", f"/tmp/{environ.get('IOT_CERT_PEM')}")
-myAWSIoTMQTTShadowClient.connect()
-device_handler = myAWSIoTMQTTShadowClient.createShadowHandlerWithName(environ.get("IOT_THING_NAME"), True)
+device_handler = myAWSIoTMQTTShadowClient
 
 di["iot"] = device_handler

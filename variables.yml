@@ -10,6 +10,11 @@ certs:
   certificatePem: certificate.pem.crt
 iot:
   clientId: ${self:custom.serviceName}-${self:custom.environment}
-  endpoint: a1wtmy6kdne4mp-ats.iot.us-east-1.amazonaws.com
+  endpoint: ${ssm.${self:custom.region}:/resource/iot/endpoint~true}
   port: 8883
-  thingName: pool
+  thingName: ${ssm.${self:custom.region}:/resource/iot/thing-name}
+openWeather:
+  endpoint: https://api.openweathermap.org/data/2.5/weather
+  appid: ${ssm.${self:custom.region}:/resource/openweather/appid~true}
+  lat: ${ssm.${self:custom.region}:/resource/openweather/lat}
+  lon: ${ssm.${self:custom.region}:/resource/openweather/lon}

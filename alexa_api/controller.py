@@ -1,9 +1,8 @@
-from alexa_api.types import LambdaContext, LambdaEvent, LambdaResponse
+from alexa_api.types import LambdaContext, LambdaEvent, LambdaResponse, IotEvent
 from ask_sdk_core.skill_builder import SkillBuilder
 from typing import Dict, Any
 from kink import inject
 import json
-import boto3
 
 from alexa_api.intents.alexa_service import (
     LaunchRequestHandler,
@@ -24,7 +23,7 @@ from alexa_api.devices.service import (
     DeleteDeviceRequest,
 )
 from alexa_api.serverless import serverless
-from alexa_api.iot.service import IotService
+from alexa_api.iot.service import IIotService, SendOrderRequest, IotToSnsDispatcherRequest
 
 
 def hello_world(event: LambdaEvent, context: LambdaContext) -> LambdaResponse:
@@ -52,10 +51,11 @@ def skill_handler(
     return lambda_handler(event, context)
 
 
-@serverless
 @inject
-def sns_dispatcher(event: LambdaEvent, context: LambdaContext, iot_service:  IotService) -> None:
-    iot_service.dispatch_sns(event)
+def iot_to_sns_dispatcher(event: IotEvent, context: LambdaContext, iot_service:  IIotService) -> None:
+
+    request = IotToSnsDispatcherRequest(event)
+    iot_service.dispatch_sns(request)
 
 
 @serverless
@@ -66,7 +66,7 @@ def create_device(
     body = json.loads(event["body"])
 
     request = CreateDeviceRequest(
-        body["name"], body.get("description"), body["position"], body["GPIO"]
+        body["name"], body.get("description"), body["position"], body["GPIO"], body.get("weather_fence"), body.get("timer_fence"), body.get("device_fence")
     )
 
     device_resource = devices_service.create(request)
@@ -107,6 +107,9 @@ def update_device(
         body.get("description"),
         body.get("position"),
         body.get("GPIO"),
+        body.get("weather_fence"),
+        body.get("timer_fence"),
+        body.get("device_fence")
     )
     device_resource = devices_service.update(request)
 
@@ -124,17 +127,28 @@ def delete_device(
     return {"statusCode": 204, "body": ""}
 
 
-@serverless
 @inject
 def rpi_simulator(
-    event: Dict, context: LambdaContext, iot_service: IotService
+    event: Dict, context: LambdaContext, iot_service: IIotService
 ):
-    iot_service.activate_device(event)
+    if "desired" in event["state"]:
+        iot_service.activate_device(event)
+
+
+@inject
+def hello_sns(
+    event: LambdaEvent, context: LambdaContext, iot_service: IIotService
+):
+    print("SNS arrived :", event)
 
 
 @serverless
 @inject
-def hello_sns(
-    event: LambdaEvent, context: LambdaContext, iot_service: IotService
-):
-    print("SNS arrived :", event)
+def iot_send_order(
+    event: LambdaEvent, context: LambdaContext, devices_service: DevicesService, iot_service: IIotService
+) -> LambdaResponse:
+    body = json.loads(event["body"])
+    request = SendOrderRequest(event["pathParameters"]["device_id"], body["status"], body.get("timeout"))
+
+    iot_resource = iot_service.send_order(request)
+    return {"statusCode": 200, "body": json.dumps(iot_resource)}

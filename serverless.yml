@@ -25,6 +25,10 @@ provider:
     IOT_ENDPOINT: ${self:custom.iot.endpoint}
     IOT_PORT: ${self:custom.iot.port}
     IOT_THING_NAME: ${self:custom.iot.thingName}
+    OW_ENDPOINT: ${self:custom.openWeather.endpoint}
+    OW_APPID: ${self:custom.openWeather.appid}
+    OW_LAT: ${self:custom.openWeather.lat}
+    OW_LON: ${self:custom.openWeather.lon}
   apiName: ${self:service}
   apiKeys:
     - ${self:service}
@@ -70,6 +74,7 @@ custom:
     source: mapping.json
     variables:
       functionPrefix: alexa-api${env:FEATURE_BRANCH_UNDERSCORED, ''}
+  lambdaPrefixArn: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function
   tracing:
     lambda: true
     apiGateway: true
@@ -125,33 +130,39 @@ functions:
           method: get
           private: true
 
-  sns_dispatcher:
-    description: Hello World for IoT
-    module: alexa_api/controller
-    handler: alexa_api.controller.sns_dispatcher
-    layers:
-      - {Ref: PythonRequirementsLambdaLayer}
-    iamRoleStatements:
-      - Effect: "Allow"
-        Action:
-          - s3:ListBucket
-        Resource: arn:aws:s3:::${self:custom.certificatesBucket}
-      - Effect: "Allow"
-        Action:
-          - s3:GetObject
-        Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
-      - Effect: "Allow"
-        Action:
-          - SNS:Publish
-          - SNS:SetTopicAttributes
-        Resource: arn:aws:sns:#{AWS::Region}:#{AWS::AccountId}:DeviceChanged
-    environment:
-      SNS_ARN: arn:aws:sns:#{AWS::Region}:#{AWS::AccountId}:DeviceChanged
-    events:
-      - iot:
-          name: 'iot_to_sns_dispatcher'
-          sql: "SELECT state, action, device_name, device_id FROM '$aws/things/pool/shadow/update' "
-          description: 'Gets all IoT events and resend them as a SNS message'
+  iot_to_sns_dispatcher:
+   description: Sends SNS events from any IoT event
+   module: alexa_api/controller
+   handler: alexa_api.controller.iot_to_sns_dispatcher
+   layers:
+     - {Ref: PythonRequirementsLambdaLayer}
+   iamRoleStatements:
+     - Effect: "Allow"
+       Action:
+         - s3:ListBucket
+       Resource: arn:aws:s3:::${self:custom.certificatesBucket}
+     - Effect: "Allow"
+       Action:
+         - s3:GetObject
+       Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
+     - Effect: "Allow"
+       Action:
+         - SNS:Publish
+         - SNS:SetTopicAttributes
+       Resource: arn:aws:sns:#{AWS::Region}:#{AWS::AccountId}:DeviceChanged
+     - Effect: Allow
+       Action:
+         - dynamodb:Scan
+         - dynamodb:Query
+         - dynamodb:UpdateItem
+       Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
+   environment:
+     SNS_ARN: arn:aws:sns:#{AWS::Region}:#{AWS::AccountId}:DeviceChanged
+   events:
+     - iot:
+         name: 'iot_to_sns_dispatcher'
+         sql: "SELECT * FROM 'device/#'"
+         description: 'Gets all IoT events and resend them as a SNS message'
 
   create_device:
    description: Endpoint for creating a new device
@@ -225,6 +236,9 @@ functions:
       - Effect: Allow
         Action:
           - dynamodb:DeleteItem
+          - dynamodb:Scan
+          - dynamodb:Query
+          - dynamodb:UpdateItem
         Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
       - Effect: "Allow"
         Action:
@@ -293,6 +307,33 @@ functions:
           path: /devices
           method: get
 
+  iot_send_order:
+    description: Publishes an IoT order and waits confirmation
+    module: alexa_api/controller
+    handler: alexa_api.controller.iot_send_order
+    timeout: 20
+    layers:
+      - {Ref: PythonRequirementsLambdaLayer}
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
+      - Effect: "Allow"
+        Action:
+          - s3:ListBucket
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}
+      - Effect: "Allow"
+        Action:
+          - s3:GetObject
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
+    events:
+      - http:
+          path: /change/{device_id}
+          method: post
+
+
   rpi_simulator:
     description: test
     module: alexa_api/controller
@@ -308,10 +349,15 @@ functions:
         Action:
           - s3:GetObject
         Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
     events:
       - iot:
           name: 'require_change_events'
-          sql: "SELECT state, action, device_name, device_id FROM '$aws/things/pool/shadow/update' WHERE action = 'desired' "
+          sql: "SELECT * FROM 'device/desired'"
           description: 'Alexa asks to change device status'
 
   hello_sns:
@@ -364,6 +410,20 @@ functions:
         Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
     events:
       - alexaSkill: amzn1.ask.skill.e9533954-285e-4996-aadf-ca1d531d9e65
+      - http:
+          path: /fake
+          method: get
+          authorizer: aws_iam
+    environment:
+      URL_BASE:
+        !Join
+        - ''
+        - - 'https://'
+          - !Ref ApiGatewayRestApi
+          - '.execute-api.'
+          - ${self:custom.region}
+          - '.amazonaws.com/'
+          - ${self:custom.environment}
 
 resources:
   Resources:
@@ -407,6 +467,8 @@ resources:
             AttributeType: S
           - AttributeName: intent_id
             AttributeType: S
+          - AttributeName: iot_err
+            AttributeType: N
         KeySchema:
           - AttributeName: id
             KeyType: HASH
@@ -415,6 +477,14 @@ resources:
             KeySchema:
               - AttributeName: intent_id
                 KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+          - IndexName: by_intent_id_and_iot_err
+            KeySchema:
+              - AttributeName: intent_id
+                KeyType: HASH
+              - AttributeName: iot_err
+                KeyType: RANGE
             Projection:
               ProjectionType: ALL
 

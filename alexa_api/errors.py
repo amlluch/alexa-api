@@ -20,3 +20,7 @@ class RecordNotFound(ApiError):
 
 class RecordExists(ApiError):
     status_code = 409
+
+
+class TimeOut(ApiError):
+    status_code = 408
