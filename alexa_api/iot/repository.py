@@ -12,11 +12,12 @@ from alexa_api.iot.iot import IotErr
 
 @runtime_checkable
 class IIotRepository(Protocol):
-
     def activate_device(self, event: Dict) -> None:
         ...
 
-    def dispatch_sns(self, action: str, status: bool, device_id: ObjectId, event: Dict) -> None:
+    def dispatch_sns(
+        self, action: str, status: bool, device_id: ObjectId, event: Dict
+    ) -> None:
         ...
 
     def send_order(self, device_id: ObjectId, status: bool) -> None:
@@ -25,7 +26,9 @@ class IIotRepository(Protocol):
     def get_device_status(self, device_id: ObjectId) -> bool:
         ...
 
-    def confirm_status(self, device: Device, desired_status: bool, timeout: int) -> Dict:
+    def confirm_status(
+        self, device: Device, desired_status: bool, timeout: int
+    ) -> Dict:
         ...
 
 
@@ -37,56 +40,40 @@ class IotRepository(IIotRepository):
 
     def activate_device(self, event: Dict) -> None:
 
-        payload = {
-            "state": {
-                "reported": event["state"]["desired"]
-            }
-        }
+        payload = {"state": {"reported": event["state"]["desired"]}}
 
         time.sleep(3)
 
         self.iot.connect()
         self.iot.publish("device/reported", json.dumps(payload), 0)
 
-    def dispatch_sns(self, action: str, status: bool, device_id: ObjectId, event: Dict) -> None:
+    def dispatch_sns(
+        self, action: str, status: bool, device_id: ObjectId, event: Dict
+    ) -> None:
 
-        client = boto3.client('sns')
-        arn = environ.get('SNS_ARN')
+        client = boto3.client("sns")
+        arn = environ.get("SNS_ARN")
         message_attributes = {
-            'action': {
-                'DataType': 'String',
-                'StringValue': action
-            },
-            'status': {
-                'DataType': 'String',
-                'StringValue': str(status)
-            },
-            'device_id': {
-                'DataType': 'String',
-                'StringValue': str(device_id)
-            }
+            "action": {"DataType": "String", "StringValue": action},
+            "status": {"DataType": "String", "StringValue": str(status)},
+            "device_id": {"DataType": "String", "StringValue": str(device_id)},
         }
         client.publish(
             TopicArn=arn,
             Message=json.dumps({"default": json.dumps(event)}),
-            MessageStructure='json',
-            MessageAttributes=message_attributes
+            MessageStructure="json",
+            MessageAttributes=message_attributes,
         )
 
     def send_order(self, device_id: ObjectId, status: bool) -> None:
-        payload = {
-            "state": {
-                "desired": {
-                    "is_on": status,
-                    "device_id": str(device_id)
-                }
-            }
-        }
+        payload = {"state": {"desired": {"is_on": status, "device_id": str(device_id)}}}
 
         self.iot.connect()
         self.iot.publish("device/desired", json.dumps(payload), 0)
 
-    def confirm_status(self, current_device: Device, desired_status: bool, timeout: int) -> Dict:
+    def confirm_status(
+        self, current_device: Device, desired_status: bool, timeout: int
+    ) -> Dict:
         max_time = time.time() + timeout
         while time.time() < max_time:
             time.sleep(2)

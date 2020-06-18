@@ -32,7 +32,9 @@ class IDevicesRepository(Protocol):
     def get_list(self) -> Iterable[Device]:
         ...
 
-    def get_device_fence_list(self, devices: Optional[List[ObjectId]]) -> Iterable[Device]:
+    def get_device_fence_list(
+        self, devices: Optional[List[ObjectId]]
+    ) -> Iterable[Device]:
         ...
 
 
@@ -125,7 +127,9 @@ class DevicesRepository(IDevicesRepository):
         for item in result["Items"]:
             yield self._hydrate_device(item)
 
-    def get_device_fence_list(self, devices: Optional[List[ObjectId]]) -> Iterable[Device]:
+    def get_device_fence_list(
+        self, devices: Optional[List[ObjectId]]
+    ) -> Iterable[Device]:
         if not devices:
             return
         for device in devices:
@@ -139,9 +143,11 @@ class DevicesRepository(IDevicesRepository):
             position=int(item["position"]),
             GPIO=int(item["GPIO"]),
             status=item.get("status"),
-            weather_fence=int(item.get("weather_fence")) if "weather_fence" in item else 0,
+            weather_fence=int(item.get("weather_fence"))
+            if "weather_fence" in item
+            else 0,
             timer_fence=int(item.get("timer_fence")) if "timer_fence" in item else 0,
-            device_fence=self._hydrate_device_fence(item.get("device_fence"))
+            device_fence=self._hydrate_device_fence(item.get("device_fence")),
         )
 
     @staticmethod

@@ -20,7 +20,16 @@ class CreateDeviceRequest:
     device_fence: Optional[List[ObjectId]]
     status: Optional[bool] = False
 
-    def __init__(self, name: str, description: str, position: int, gpio: int, weather_fence: str, timer_fence: str, device_fence: List[str]) -> None:
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        position: int,
+        gpio: int,
+        weather_fence: str,
+        timer_fence: str,
+        device_fence: List[str],
+    ) -> None:
         self.device_id = ObjectId()
         self.name = name
         self.description = description
@@ -28,7 +37,11 @@ class CreateDeviceRequest:
         self.GPIO = gpio
         self.weather_fence = int(weather_fence) if weather_fence is not None else 0
         self.timer_fence = int(timer_fence) if timer_fence is not None else 0
-        self.device_fence = [ObjectId(element) for element in device_fence] if device_fence is not None else None
+        self.device_fence = (
+            [ObjectId(element) for element in device_fence]
+            if device_fence is not None
+            else None
+        )
 
     def __iter__(self) -> Iterator[Tuple[str, Any]]:
         for key, value in self.__dict__.items():
@@ -52,12 +65,20 @@ class UpdateDeviceRequest:
     description: Optional[str]
     position: Optional[int]
     GPIO: Optional[int]
-    weather_fence: Optional[int]    # if humidity is higher than this value, it will stop
-    timer_fence: Optional[int]      # max time on
+    weather_fence: Optional[int]  # if humidity is higher than this value, it will stop
+    timer_fence: Optional[int]  # max time on
     device_fence: Optional[List[ObjectId]]  # devices that should'nt be working
 
     def __init__(
-        self, device_id: str, name: str, description: str, position: str, gpio: str, weather_fence: str, timer_fence: str, device_fence: List[str]
+        self,
+        device_id: str,
+        name: str,
+        description: str,
+        position: str,
+        gpio: str,
+        weather_fence: str,
+        timer_fence: str,
+        device_fence: List[str],
     ):
         self.device_id = ObjectId(device_id)
         self.name = name
@@ -66,7 +87,11 @@ class UpdateDeviceRequest:
         self.GPIO = int(gpio) if gpio is not None else None
         self.weather_fence = int(weather_fence) if weather_fence is not None else None
         self.timer_fence = int(timer_fence) if timer_fence is not None else None
-        self.device_fence = [ObjectId(element) for element in device_fence] if device_fence is not None else None
+        self.device_fence = (
+            [ObjectId(element) for element in device_fence]
+            if device_fence is not None
+            else None
+        )
 
     def __iter__(self) -> Iterator[Tuple[str, Any]]:
         for key, value in self.__dict__.items():
