@@ -42,6 +42,7 @@ plugins:
   - serverless-kms-grants
   - serverless-iam-roles-per-function
   - serverless-s3-deploy
+  - serverless-step-functions
 
 custom:
   environment: ${opt:stage, "develop"}
@@ -75,6 +76,7 @@ custom:
     variables:
       functionPrefix: alexa-api${env:FEATURE_BRANCH_UNDERSCORED, ''}
   lambdaPrefixArn: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function
+  timerFenceStateMachineArn: arn:aws:states:#{AWS::Region}:#{AWS::AccountId}:stateMachine:TimerFenceStateMachine
   tracing:
     lambda: true
     apiGateway: true
@@ -328,6 +330,12 @@ functions:
         Action:
           - s3:GetObject
         Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
+      - Effect: "Allow"
+        Action:
+          - iot:subscribe
+        Resource:
+          - arn:aws:iot:#{AWS::Region}:#{AWS::AccountId}:topicfilter/device/desired
+          - arn:aws:iot:#{AWS::Region}:#{AWS::AccountId}:topicfilter/device/reported
     events:
       - http:
           path: /change/{device_id}
@@ -360,10 +368,10 @@ functions:
           sql: "SELECT * FROM 'device/desired'"
           description: 'Alexa asks to change device status'
 
-  hello_sns:
-    description: sns test
+  timer_fence:
+    description: checks if the device has a timer and starts it
     module: alexa_api/controller
-    handler: alexa_api.controller.hello_sns
+    handler: alexa_api.controller.timer_fence
     layers:
       - {Ref: PythonRequirementsLambdaLayer}
     iamRoleStatements:
@@ -375,13 +383,26 @@ functions:
         Action:
           - s3:GetObject
         Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
+      - Effect: Allow
+        Action:
+          - states:StartExecution
+          - states:ListExecutions
+        Resource: ${self:custom.timerFenceStateMachineArn}
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
+    environment:
+      TIMER_FENCE_ARN: ${self:custom.timerFenceStateMachineArn}
     events:
       - sns:
           arn: !Ref SNSTopic
           topicName: DeviceChanged
           filterPolicy:
             action:
-              - changed
+              - reported
+            status:
+              - "True"
 
   skill_handler:
     description: Alexa skill controller
@@ -424,6 +445,50 @@ functions:
           - ${self:custom.region}
           - '.amazonaws.com/'
           - ${self:custom.environment}
+
+  stop_device:
+    description: stop a device depending on the timer fence value
+    module: alexa_api/controller
+    handler: alexa_api.controller.stop_device
+    layers:
+      - {Ref: PythonRequirementsLambdaLayer}
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.dialogsTable}*
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.dialogsTable}/index/*
+      - Effect: "Allow"
+        Action:
+          - s3:ListBucket
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}
+      - Effect: "Allow"
+        Action:
+          - s3:GetObject
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
+
+stepFunctions:
+  stateMachines:
+    TimerFenceStateMachine:
+      name: TimerFenceStateMachine
+      definition:
+        StartAt: StartTimer
+        States:
+          StartTimer:
+            Type: Wait
+            SecondsPath: $.delay
+            Next: StopDevice
+          StopDevice:
+            Type: Task
+            Resource: ${self:custom.lambdaPrefixArn}:${self:custom.serviceName}_stop_device
+            Next: Completed
+          Completed:
+            Type: Succeed
 
 resources:
   Resources:

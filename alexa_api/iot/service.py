@@ -49,6 +49,12 @@ class IIotService(Protocol):
     def send_order(self, request: SendOrderRequest) -> Dict:
         ...
 
+    def timer_fence(self, event: Dict) -> None:
+        ...
+
+    def stop_device(self, device_id: str) -> None:
+        ...
+
 
 @inject(alias=IIotService)
 class IotService(IIotService):
@@ -112,3 +118,13 @@ class IotService(IIotService):
             )
 
         return err_response
+
+    def timer_fence(self, event: Dict) -> None:
+        device_id = event["state"]["reported"]["device_id"]
+        device = self.devices_repository.get(ObjectId(device_id))
+        if not device.timer_fence or device.timer_fence == 0:
+            return
+        self.iot_repository.start_timer_fence(event, device_id, device.timer_fence)
+
+    def stop_device(self, device_id: str) -> None:
+        self.iot_repository.send_order(ObjectId(device_id), False)

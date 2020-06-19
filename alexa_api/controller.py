@@ -3,6 +3,7 @@ from ask_sdk_core.skill_builder import SkillBuilder
 from typing import Dict, Any
 from kink import inject
 import json
+from os import environ
 
 from alexa_api.intents.alexa_service import (
     LaunchRequestHandler,
@@ -146,8 +147,9 @@ def rpi_simulator(event: Dict, context: LambdaContext, iot_service: IIotService)
 
 
 @inject
-def hello_sns(event: LambdaEvent, context: LambdaContext, iot_service: IIotService):
+def timer_fence(event: LambdaEvent, context: LambdaContext, iot_service: IIotService):
     print("SNS arrived :", event)
+    iot_service.timer_fence(json.loads(event["Records"][0]["Sns"]["Message"]))
 
 
 @serverless
@@ -165,3 +167,13 @@ def iot_send_order(
 
     iot_resource = iot_service.send_order(request)
     return {"statusCode": 200, "body": json.dumps(iot_resource)}
+
+
+@inject
+def stop_device(
+    event: LambdaEvent,
+    context: LambdaContext,
+    devices_service: DevicesService,
+    iot_service: IIotService,
+) -> None:
+    iot_service.stop_device(event["state"]["reported"]["device_id"])

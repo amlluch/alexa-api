@@ -8,6 +8,8 @@ import time
 from bson import ObjectId
 from alexa_api.devices.repository import Device, DevicesRepository
 from alexa_api.iot.iot import IotErr
+from datetime import datetime
+import re
 
 
 @runtime_checkable
@@ -29,6 +31,9 @@ class IIotRepository(Protocol):
     def confirm_status(
         self, device: Device, desired_status: bool, timeout: int
     ) -> Dict:
+        ...
+
+    def start_timer_fence(self, event: Dict, device_id: str, timer: int) -> None:
         ...
 
 
@@ -67,7 +72,6 @@ class IotRepository(IIotRepository):
 
     def send_order(self, device_id: ObjectId, status: bool) -> None:
         payload = {"state": {"desired": {"is_on": status, "device_id": str(device_id)}}}
-
         self.iot.connect()
         self.iot.publish("device/desired", json.dumps(payload), 0)
 
@@ -82,3 +86,21 @@ class IotRepository(IIotRepository):
                 return {"info": "Device status confirmed", "err": IotErr.CONFIRMED}
 
         return {"info": "Device status confirmation failed", "err": IotErr.FAILED}
+
+    def start_timer_fence(self, event: Dict, device_id: str, timer: int) -> None:
+        TIMER_FENCE_ARN = environ.get("TIMER_FENCE_ARN")
+
+        state_machine = boto3.client("stepfunctions")
+        state_machine_name = self._get_machine_name(device_id)
+        input_event = {**event, **{"delay": timer}}
+
+        state_machine.start_execution(
+            stateMachineArn=TIMER_FENCE_ARN, input=json.dumps(input_event), name=state_machine_name
+        )
+
+    @staticmethod
+    def _get_machine_name(device_id: str) -> str:
+        # illegal characters for state machine names
+        illegal_chars = re.compile(r'\s|[<>{}\[\]]|[?*]|["#%\\^|~`$&,;:/]|[\u0000-\u001f\u007f-\u009f]')
+        state_machine_name = f"{device_id}-{datetime.now()}"
+        return illegal_chars.sub("", state_machine_name)
