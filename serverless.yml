@@ -25,6 +25,8 @@ provider:
     IOT_ENDPOINT: ${self:custom.iot.endpoint}
     IOT_PORT: ${self:custom.iot.port}
     IOT_THING_NAME: ${self:custom.iot.thingName}
+    IOT_DESIRED_TOPIC: ${self:custom.iot.desiredTopic}
+    IOT_BASE_TOPIC: ${self:custom.iot.baseTopic}
     OW_ENDPOINT: ${self:custom.openWeather.endpoint}
     OW_APPID: ${self:custom.openWeather.appid}
     OW_LAT: ${self:custom.openWeather.lat}
@@ -163,7 +165,7 @@ functions:
    events:
      - iot:
          name: 'iot_to_sns_dispatcher'
-         sql: "SELECT * FROM 'device/#'"
+         sql: "SELECT * FROM '${self:custom.iot.baseTopic}/#'"
          description: 'Gets all IoT events and resend them as a SNS message'
 
   create_device:
@@ -365,7 +367,7 @@ functions:
     events:
       - iot:
           name: 'require_change_events'
-          sql: "SELECT * FROM 'device/desired'"
+          sql: "SELECT * FROM '${self:custom.iot.desiredTopic}'"
           description: 'Alexa asks to change device status'
 
   timer_fence:

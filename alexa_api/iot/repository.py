@@ -9,6 +9,7 @@ from bson import ObjectId
 from alexa_api.devices.repository import Device, DevicesRepository
 from alexa_api.iot.iot import IotErr
 from datetime import datetime
+from alexa_api.iot import DESIRED_TOPIC
 import re
 
 
@@ -50,7 +51,7 @@ class IotRepository(IIotRepository):
         time.sleep(3)
 
         self.iot.connect()
-        self.iot.publish("device/reported", json.dumps(payload), 0)
+        self.iot.publish(DESIRED_TOPIC, json.dumps(payload), 0)
 
     def dispatch_sns(
         self, action: str, status: bool, device_id: ObjectId, event: Dict
@@ -73,7 +74,7 @@ class IotRepository(IIotRepository):
     def send_order(self, device_id: ObjectId, status: bool) -> None:
         payload = {"state": {"desired": {"is_on": status, "device_id": str(device_id)}}}
         self.iot.connect()
-        self.iot.publish("device/desired", json.dumps(payload), 0)
+        self.iot.publish(DESIRED_TOPIC, json.dumps(payload), 0)
 
     def confirm_status(
         self, current_device: Device, desired_status: bool, timeout: int

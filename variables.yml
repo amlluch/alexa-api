@@ -13,6 +13,8 @@ iot:
   endpoint: ${ssm.${self:custom.region}:/resource/iot/endpoint~true}
   port: 8883
   thingName: ${ssm.${self:custom.region}:/resource/iot/thing-name}
+  desiredTopic: device/desired
+  baseTopic: device
 openWeather:
   endpoint: https://api.openweathermap.org/data/2.5/weather
   appid: ${ssm.${self:custom.region}:/resource/openweather/appid~true}
