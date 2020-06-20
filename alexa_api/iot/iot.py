@@ -7,4 +7,5 @@ class IotErr(IntEnum):
     UNCONFIRMED = 1
     FAILED = 2
     EXISTING = 3
-    FENCED = 4
+    DEVICE_FENCED = 4
+    WEATHER_FENCED = 5

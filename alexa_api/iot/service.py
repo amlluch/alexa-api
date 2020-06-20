@@ -107,7 +107,14 @@ class IotService(IIotService):
                 if device_fence.status:
                     return {
                         "info": f"Incompatible device {device_fence.device_id} is on",
-                        "err": IotErr.FENCED,
+                        "err": IotErr.DEVICE_FENCED,
+                    }
+
+            if device.weather_fence and device.weather_fence != 0:
+                if self.iot_repository.weather_fence(device.weather_fence):
+                    return {
+                        "info": f"Device {device.device_id} stopped by weather fence",
+                        "err": IotErr.WEATHER_FENCED,
                     }
 
         self.iot_repository.send_order(request.device_id, request.status)

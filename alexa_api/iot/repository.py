@@ -11,6 +11,8 @@ from alexa_api.iot.iot import IotErr
 from datetime import datetime
 from alexa_api.iot import DESIRED_TOPIC
 import re
+import requests
+from alexa_api.iot import OW_ENDPOINT, OW_APPID, OW_LAT, OW_LON
 
 
 @runtime_checkable
@@ -35,6 +37,9 @@ class IIotRepository(Protocol):
         ...
 
     def start_timer_fence(self, event: Dict, device_id: str, timer: int) -> None:
+        ...
+
+    def weather_fence(self, humidity: int) -> bool:
         ...
 
 
@@ -98,6 +103,16 @@ class IotRepository(IIotRepository):
         state_machine.start_execution(
             stateMachineArn=TIMER_FENCE_ARN, input=json.dumps(input_event), name=state_machine_name
         )
+
+    def weather_fence(self, humidity: int) -> bool:
+        payload = (("lat", OW_LAT), ("lon", OW_LON), ("appid", OW_APPID))
+        response = requests.get(OW_ENDPOINT, params=payload)
+        if response.status_code not in range(200, 300):
+            return False
+        result = json.loads(response.text)
+        if result["main"]["humidity"] > humidity:
+            return True
+        return False
 
     @staticmethod
     def _get_machine_name(device_id: str) -> str:
