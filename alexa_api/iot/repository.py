@@ -1,7 +1,6 @@
 from typing_extensions import Protocol, runtime_checkable
 from typing import Dict, Any
 import boto3
-from os import environ
 import json
 from kink import inject
 import time
@@ -9,10 +8,17 @@ from bson import ObjectId
 from alexa_api.devices.repository import Device, DevicesRepository
 from alexa_api.iot.iot import IotErr
 from datetime import datetime
-from alexa_api.iot import DESIRED_TOPIC
+from alexa_api.iot import (
+    DESIRED_TOPIC,
+    OW_ENDPOINT,
+    OW_APPID,
+    OW_LAT,
+    OW_LON,
+    TIMER_FENCE_ARN,
+    SNS_ARN
+)
 import re
 import requests
-from alexa_api.iot import OW_ENDPOINT, OW_APPID, OW_LAT, OW_LON
 
 
 @runtime_checkable
@@ -63,7 +69,7 @@ class IotRepository(IIotRepository):
     ) -> None:
 
         client = boto3.client("sns")
-        arn = environ.get("SNS_ARN")
+        arn = SNS_ARN
         message_attributes = {
             "action": {"DataType": "String", "StringValue": action},
             "status": {"DataType": "String", "StringValue": str(status)},
@@ -94,14 +100,15 @@ class IotRepository(IIotRepository):
         return {"info": "Device status confirmation failed", "err": IotErr.FAILED}
 
     def start_timer_fence(self, event: Dict, device_id: str, timer: int) -> None:
-        TIMER_FENCE_ARN = environ.get("TIMER_FENCE_ARN")
 
         state_machine = boto3.client("stepfunctions")
         state_machine_name = self._get_machine_name(device_id)
         input_event = {**event, **{"delay": timer}}
 
         state_machine.start_execution(
-            stateMachineArn=TIMER_FENCE_ARN, input=json.dumps(input_event), name=state_machine_name
+            stateMachineArn=TIMER_FENCE_ARN,
+            input=json.dumps(input_event),
+            name=state_machine_name,
         )
 
     def weather_fence(self, humidity: int) -> bool:
@@ -117,6 +124,8 @@ class IotRepository(IIotRepository):
     @staticmethod
     def _get_machine_name(device_id: str) -> str:
         # illegal characters for state machine names
-        illegal_chars = re.compile(r'\s|[<>{}\[\]]|[?*]|["#%\\^|~`$&,;:/]|[\u0000-\u001f\u007f-\u009f]')
+        illegal_chars = re.compile(
+            r'\s|[<>{}\[\]]|[?*]|["#%\\^|~`$&,;:/]|[\u0000-\u001f\u007f-\u009f]'
+        )
         state_machine_name = f"{device_id}-{datetime.now()}"
         return illegal_chars.sub("", state_machine_name)
