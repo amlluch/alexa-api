@@ -447,22 +447,12 @@ functions:
           - ${self:custom.environment}
 
   stop_device:
-    description: stop a device depending on the timer fence value
+    description: stops a device depending on the timer fence value
     module: alexa_api/controller
     handler: alexa_api.controller.stop_device
     layers:
       - {Ref: PythonRequirementsLambdaLayer}
     iamRoleStatements:
-      - Effect: Allow
-        Action:
-          - dynamodb:Scan
-          - dynamodb:Query
-        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.dialogsTable}*
-      - Effect: Allow
-        Action:
-          - dynamodb:Scan
-          - dynamodb:Query
-        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.dialogsTable}/index/*
       - Effect: "Allow"
         Action:
           - s3:ListBucket

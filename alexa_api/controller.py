@@ -3,7 +3,6 @@ from ask_sdk_core.skill_builder import SkillBuilder
 from typing import Dict, Any
 from kink import inject
 import json
-from os import environ
 
 from alexa_api.intents.alexa_service import (
     LaunchRequestHandler,
@@ -27,7 +26,7 @@ from alexa_api.serverless import serverless
 from alexa_api.iot.service import (
     IIotService,
     SendOrderRequest,
-    IotToSnsDispatcherRequest,
+    IotToSnsDispatcherEvent,
 )
 
 
@@ -61,8 +60,8 @@ def iot_to_sns_dispatcher(
     event: IotEvent, context: LambdaContext, iot_service: IIotService
 ) -> None:
 
-    request = IotToSnsDispatcherRequest(event)
-    iot_service.dispatch_sns(request)
+    event = IotToSnsDispatcherEvent(event)
+    iot_service.dispatch_sns(event)
 
 
 @serverless

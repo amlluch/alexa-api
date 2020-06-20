@@ -10,17 +10,17 @@ from alexa_api.iot.iot import IotErr
 
 
 @dataclass
-class IotToSnsDispatcherRequest:
+class IotToSnsDispatcherEvent:
     device_id: ObjectId
     status: bool
-    event: Dict
+    raw_event: Dict
     action: str
 
     def __init__(self, event):
         self.action = "reported" if "reported" in event["state"] else "desired"
         self.device_id = ObjectId(event["state"][self.action]["device_id"])
         self.status = bool(event["state"][self.action]["is_on"])
-        self.event = event
+        self.raw_event = event
 
 
 @dataclass
@@ -43,7 +43,7 @@ class IIotService(Protocol):
     def activate_device(self, event: Dict) -> None:
         ...
 
-    def dispatch_sns(self, request: IotToSnsDispatcherRequest) -> None:
+    def dispatch_sns(self, request: IotToSnsDispatcherEvent) -> None:
         ...
 
     def send_order(self, request: SendOrderRequest) -> Dict:
@@ -74,15 +74,15 @@ class IotService(IIotService):
 
         self.iot_repository.activate_device(event)
 
-    def dispatch_sns(self, request: IotToSnsDispatcherRequest) -> None:
+    def dispatch_sns(self, event: IotToSnsDispatcherEvent) -> None:
 
-        device = self.devices_repository.get(request.device_id)
+        device = self.devices_repository.get(event.device_id)
         self.iot_repository.dispatch_sns(
-            request.action, request.status, request.device_id, request.event
+            event.action, event.status, event.device_id, event.raw_event
         )
 
-        if request.action == "reported":
-            device.status = request.status
+        if event.action == "reported":
+            device.status = event.status
             self.devices_repository.update(device)
 
     def send_order(self, request: SendOrderRequest) -> Dict:
