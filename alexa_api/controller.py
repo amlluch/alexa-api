@@ -60,8 +60,8 @@ def iot_to_sns_dispatcher(
     event: IotEvent, context: LambdaContext, iot_service: IIotService
 ) -> None:
 
-    event = IotToSnsDispatcherEvent(event)
-    iot_service.dispatch_sns(event)
+    dispatcher_event = IotToSnsDispatcherEvent(event)
+    iot_service.dispatch_sns(dispatcher_event)
 
 
 @serverless

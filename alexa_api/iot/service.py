@@ -16,7 +16,7 @@ class IotToSnsDispatcherEvent:
     raw_event: Dict
     action: str
 
-    def __init__(self, event):
+    def __init__(self, event: Dict):
         self.action = "reported" if "reported" in event["state"] else "desired"
         self.device_id = ObjectId(event["state"][self.action]["device_id"])
         self.status = bool(event["state"][self.action]["is_on"])
