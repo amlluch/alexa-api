@@ -11,6 +11,8 @@ class Dialog:
     intent_id: str
     speak: str
     ask: Optional[str]
+    iot_err: int
+    device_id: ObjectId
 
 
 @dataclass

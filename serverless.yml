@@ -15,6 +15,7 @@ provider:
     ENVIRONMENT: ${self:custom.environment}
     LOG_LEVEL: ${self:custom.logLevel}
     STAGE: ${self:custom.environment}
+    TIMER_FENCE_ARN: ${self:custom.timerFenceStateMachineArn}
     DB_DEVICES_TABLE: ${self:custom.databaseTables.devicesTable}
     DB_INTENTS_TABLE: ${self:custom.databaseTables.dialogsTable}
     S3_CERTIFICATES: ${self:custom.certificatesBucket}
@@ -394,8 +395,6 @@ functions:
         Action:
           - dynamodb:Query
         Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
-    environment:
-      TIMER_FENCE_ARN: ${self:custom.timerFenceStateMachineArn}
     events:
       - sns:
           arn: !Ref SNSTopic
@@ -410,6 +409,7 @@ functions:
     description: Alexa skill controller
     module: alexa_api/controller
     handler: alexa_api.controller.skill_handler
+    timeout: 30
     layers:
       - {Ref: PythonRequirementsLambdaLayer}
     iamRoleStatements:
@@ -431,22 +431,13 @@ functions:
         Action:
           - s3:GetObject
         Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
     events:
       - alexaSkill: amzn1.ask.skill.e9533954-285e-4996-aadf-ca1d531d9e65
-      - http:
-          path: /fake
-          method: get
-          authorizer: aws_iam
-    environment:
-      URL_BASE:
-        !Join
-        - ''
-        - - 'https://'
-          - !Ref ApiGatewayRestApi
-          - '.execute-api.'
-          - ${self:custom.region}
-          - '.amazonaws.com/'
-          - ${self:custom.environment}
 
   stop_device:
     description: stops a device depending on the timer fence value
@@ -463,6 +454,10 @@ functions:
         Action:
           - s3:GetObject
         Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
+      - Effect: Allow
+        Action:
+          - states:ListExecutions
+        Resource: ${self:custom.timerFenceStateMachineArn}
 
 stepFunctions:
   stateMachines:

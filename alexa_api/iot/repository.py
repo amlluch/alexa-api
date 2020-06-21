@@ -127,5 +127,5 @@ class IotRepository(IIotRepository):
         illegal_chars = re.compile(
             r'\s|[<>{}\[\]]|[?*]|["#%\\^|~`$&,;:/]|[\u0000-\u001f\u007f-\u009f]'
         )
-        state_machine_name = f"{device_id}-{datetime.now()}"
+        state_machine_name = f"{device_id}-timer_fence-{datetime.now()}"
         return illegal_chars.sub("", state_machine_name)

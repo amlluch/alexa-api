@@ -7,6 +7,8 @@ from alexa_api.iot.repository import IotRepository
 from alexa_api.devices.repository import DevicesRepository
 from alexa_api.errors import RecordNotFound
 from alexa_api.iot.iot import IotErr
+import boto3
+from alexa_api.iot import TIMER_FENCE_ARN
 
 
 @dataclass
@@ -134,4 +136,9 @@ class IotService(IIotService):
         self.iot_repository.start_timer_fence(event, device_id, device.timer_fence)
 
     def stop_device(self, device_id: str) -> None:
+        state_machine = boto3.client("stepfunctions")
+        response = state_machine.list_executions(stateMachineArn=TIMER_FENCE_ARN, statusFilter='RUNNING')
+        for machine in response["executions"]:
+            if f"{device_id}-timer_fence" in machine["name"]:
+                return
         self.iot_repository.send_order(ObjectId(device_id), False)

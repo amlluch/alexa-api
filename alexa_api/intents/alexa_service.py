@@ -42,8 +42,11 @@ class EnciendePiscinaIntent(AbstractRequestHandler):
 
     def handle(self, handler_input: HandlerInput) -> Response:
 
+        device_id = self.alexa_repository.get_device_id("EnciendePiscinaIntent")
+        iot_err = self.alexa_repository.send_order(device_id, True, 25)
         dialog = self.alexa_repository.get_dialog(
-            ask_utils.get_intent_name(handler_input)
+            ask_utils.get_intent_name(handler_input),
+            iot_err
         )
 
         return (
