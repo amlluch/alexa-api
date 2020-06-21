@@ -103,7 +103,7 @@ class IotRepository(IIotRepository):
 
         state_machine = boto3.client("stepfunctions")
         state_machine_name = self._get_machine_name(device_id)
-        input_event = {**event, **{"delay": timer}}
+        input_event = {**event, **{"delay": timer, "name": state_machine_name}}
 
         state_machine.start_execution(
             stateMachineArn=TIMER_FENCE_ARN,

@@ -54,7 +54,7 @@ class IIotService(Protocol):
     def timer_fence(self, event: Dict) -> None:
         ...
 
-    def stop_device(self, device_id: str) -> None:
+    def stop_device(self, device_id: str, name: str) -> None:
         ...
 
 
@@ -135,10 +135,10 @@ class IotService(IIotService):
             return
         self.iot_repository.start_timer_fence(event, device_id, device.timer_fence)
 
-    def stop_device(self, device_id: str) -> None:
+    def stop_device(self, device_id: str, name: str) -> None:
         state_machine = boto3.client("stepfunctions")
         response = state_machine.list_executions(stateMachineArn=TIMER_FENCE_ARN, statusFilter='RUNNING')
         for machine in response["executions"]:
-            if f"{device_id}-timer_fence" in machine["name"]:
+            if f"{device_id}-timer_fence" in machine["name"] and machine["name"] != name:
                 return
         self.iot_repository.send_order(ObjectId(device_id), False)

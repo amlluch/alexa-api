@@ -175,4 +175,4 @@ def stop_device(
     devices_service: DevicesService,
     iot_service: IIotService,
 ) -> None:
-    iot_service.stop_device(event["state"]["reported"]["device_id"])
+    iot_service.stop_device(event["state"]["reported"]["device_id"], event["name"])

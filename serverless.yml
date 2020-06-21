@@ -316,7 +316,7 @@ functions:
     description: Publishes an IoT order and waits confirmation
     module: alexa_api/controller
     handler: alexa_api.controller.iot_send_order
-    timeout: 20
+    timeout: 30
     layers:
       - {Ref: PythonRequirementsLambdaLayer}
     iamRoleStatements:
