@@ -30,8 +30,10 @@ from alexa_api.iot.service import (
 )
 
 
-def hello_world(event: LambdaEvent, context: LambdaContext) -> LambdaResponse:
-    return {"statusCode": 200, "body": "Everything ok here"}
+@inject
+def get_config(event: LambdaEvent, context: LambdaContext, iot_service: IIotService) -> LambdaResponse:
+    result = iot_service.get_config()
+    return {"statusCode": 200, "body": json.dumps(result)}
 
 
 @inject

@@ -27,6 +27,7 @@ provider:
     IOT_PORT: ${self:custom.iot.port}
     IOT_THING_NAME: ${self:custom.iot.thingName}
     IOT_DESIRED_TOPIC: ${self:custom.iot.desiredTopic}
+    IOT_REPORTED_TOPIC: ${self:custom.iot.reportedTopic}
     IOT_BASE_TOPIC: ${self:custom.iot.baseTopic}
     OW_ENDPOINT: ${self:custom.openWeather.endpoint}
     OW_APPID: ${self:custom.openWeather.appid}
@@ -123,17 +124,26 @@ custom:
       Resource: '*'
 
 functions:
-  hello_world:
-    description: Hello World
+  get_config:
+    description: Config for remote device
     module: alexa_api/controller
-    handler: alexa_api.controller.hello_world
+    handler: alexa_api.controller.get_config
     layers:
       - {Ref: PythonRequirementsLambdaLayer}
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - s3:ListBucket
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}
+      - Effect: "Allow"
+        Action:
+          - s3:GetObject
+        Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
     events:
       - http:
-          path: /hello
+          path: /config
           method: get
-          private: true
+ #         private: true
 
   iot_to_sns_dispatcher:
    description: Sends SNS events from any IoT event

@@ -1,6 +1,7 @@
 from os import environ
 
 DESIRED_TOPIC = environ.get("IOT_DESIRED_TOPIC", "")
+REPORTED_TOPIC = environ.get("IOT_REPORTED_TOPIC", "")
 BASE_TOPIC = environ.get("IOT_BASE_TOPIC", "")
 OW_ENDPOINT = environ.get("OW_ENDPOINT", "")
 OW_APPID = environ.get("OW_APPID", "")

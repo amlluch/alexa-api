@@ -8,7 +8,8 @@ from alexa_api.devices.repository import DevicesRepository
 from alexa_api.errors import RecordNotFound
 from alexa_api.iot.iot import IotErr
 import boto3
-from alexa_api.iot import TIMER_FENCE_ARN
+from alexa_api.iot import TIMER_FENCE_ARN, DESIRED_TOPIC, REPORTED_TOPIC, BASE_TOPIC
+from alexa_api import S3_CERTIFICATES, IOT_ENDPOINT, IOT_PORT
 
 
 @dataclass
@@ -55,6 +56,9 @@ class IIotService(Protocol):
         ...
 
     def stop_device(self, device_id: str, name: str) -> None:
+        ...
+
+    def get_config(self) -> Dict:
         ...
 
 
@@ -142,3 +146,11 @@ class IotService(IIotService):
             if f"{device_id}-timer_fence" in machine["name"] and machine["name"] != name:
                 return
         self.iot_repository.send_order(ObjectId(device_id), False)
+
+    def get_config(self) -> Dict:
+        s3 = boto3.resource("s3")
+        bucket = s3.Bucket(S3_CERTIFICATES)
+        certificates = {obj.key: obj.get()['Body'].read().decode('utf-8') for obj in bucket.objects.all()}
+        iot_server = {"endpoint": IOT_ENDPOINT, "port": IOT_PORT}
+        topics = {"desired": DESIRED_TOPIC, "reported": REPORTED_TOPIC, "base": BASE_TOPIC}
+        return {**certificates, **iot_server, **topics}
