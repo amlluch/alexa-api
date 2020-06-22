@@ -10,7 +10,7 @@ from alexa_api.iot.service import SendOrderRequest, IIotService
 
 @runtime_checkable
 class IAlexaRepository(Protocol):
-    def get_dialog(self, intent_name: str, iot_err: int) -> Dialog:
+    def get_dialog(self, intent_name: str, iot_err: int, locale: str = "es-ES") -> Dialog:
         ...
 
     def get_device_id(self, intent_name: str) -> ObjectId:
@@ -26,7 +26,7 @@ class AlexaRepository(IAlexaRepository):
         self.table = dialogs_table
         self.iot_service = iot_service
 
-    def get_dialog(self, intent_name: str, iot_err: int = 0) -> Dialog:
+    def get_dialog(self, intent_name: str, iot_err: int = 0, locale: str = "es-ES") -> Dialog:
         condition = conditions.Key("intent_id").eq(intent_name) & conditions.Key("iot_err").eq(iot_err)
         result = self.table.query(
             IndexName="by_intent_id_and_iot_err", KeyConditionExpression=condition
@@ -34,6 +34,11 @@ class AlexaRepository(IAlexaRepository):
 
         if result["ResponseMetadata"]["HTTPStatusCode"] not in range(200, 300):
             raise AlexaRepositoryError("error occurred when retrieving dialog details")
+
+        if len(result["Items"] > 1):
+            for item in result["Items"]:
+                if item["locale"] == locale:
+                    return self._hydrate_record(item)
 
         return self._hydrate_record(result["Items"][0])
 
@@ -51,12 +56,15 @@ class AlexaRepository(IAlexaRepository):
         result = self.iot_service.send_order(request)
         return result["err"]
 
-    def _hydrate_record(self, item: Dict) -> Dialog:
+    @staticmethod
+    def _hydrate_record(item: Dict) -> Dialog:
         return Dialog(
             id=item["id"],
             intent_id=item["intent_id"],
             speak=item["speak"],
             ask=item.get("ask"),
             iot_err=int(item["iot_err"]),
-            device_id=ObjectId(item["device_id"])
+            device_id=ObjectId(item["device_id"]),
+            locale=item.get("locale"),
+            description=item.get("description")
         )

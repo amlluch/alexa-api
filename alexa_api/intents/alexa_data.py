@@ -13,6 +13,8 @@ class Dialog:
     ask: Optional[str]
     iot_err: int
     device_id: ObjectId
+    locale: Optional[str]
+    description: Optional[str]
 
 
 @dataclass

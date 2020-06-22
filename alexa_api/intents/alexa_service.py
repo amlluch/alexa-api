@@ -1,5 +1,6 @@
 import logging
 import ask_sdk_core.utils as ask_utils
+from ask_sdk_core.utils.request_util import get_locale
 
 from ask_sdk_core.dispatch_components import AbstractRequestHandler
 from ask_sdk_core.dispatch_components import AbstractExceptionHandler
@@ -42,11 +43,13 @@ class EnciendePiscinaIntent(AbstractRequestHandler):
 
     def handle(self, handler_input: HandlerInput) -> Response:
 
+        locale = get_locale(handler_input)
         device_id = self.alexa_repository.get_device_id("EnciendePiscinaIntent")
         iot_err = self.alexa_repository.send_order(device_id, True, 25)
         dialog = self.alexa_repository.get_dialog(
             ask_utils.get_intent_name(handler_input),
-            iot_err
+            iot_err,
+            locale
         )
 
         return (
