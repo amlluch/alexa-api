@@ -1,0 +1,343 @@
+openapi: "3.0.2"
+info:
+  version: 1.0.0
+  title: Alexa app backend
+  contact:
+    name: Alfonso Martinez Lluch
+    email: amlluch@gmail.com
+paths:
+  /devices:
+    post:
+      summary: Create a new Device
+      operationId: createDevice
+      requestBody:
+        description: Device to be created
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/DeviceCreateRequest"
+      responses:
+        '200':
+          description: Device has been  created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceFields"
+        '409':
+          description: Device already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      summary: Get the full list of devices
+      operationId: getDeviceList
+      responses:
+        '200':
+          description: Device list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceList"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /devices/{device_id}:
+    parameters:
+      - name: device_id
+        in: path
+        required: true
+        description: The id of a device
+        schema:
+          type: string
+          format: ObjectId
+    get:
+      summary: Get a device
+      operationId: getDevice
+      responses:
+        '200':
+          description: Device features
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceFields"
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      summary: Modify device data
+      operationId: updateDevice
+      requestBody:
+        description: Device to be updated
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/DeviceUpdateRequest"
+      responses:
+        '200':
+          description: Updated data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceFields"
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      summary: Delete device from DynamoDB
+      operationId: deleteDevice
+      responses:
+        '204':
+          description: Device deleted
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /change/{device_id}:
+    parameters:
+      - name: device_id
+        in: path
+        required: true
+        description: The id of the device
+        schema:
+          type: string
+          format: ObjectId
+    post:
+      summary: Send order to device
+      operationId: changeDevice
+      requestBody:
+        description: Device to be updated
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                status:
+                  description: true for turning on the required device
+                  type: boolean
+                timeout:
+                  description: if not set won't wait for confirmation. If set to different than 0, that will be the timeout
+                  type: integer
+                  format: int8
+              required:
+                - status
+      responses:
+        '200':
+          description: Order sended with or without confirmation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrResponse"
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /config:
+    get:
+      responses:
+        '200':
+          description: Get config for client device
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Config"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    DeviceCreateRequest:
+      type: object
+      properties:
+        name:
+          description: "Device name"
+          type: string
+        description:
+          description: "Device description"
+          type: string
+        position:
+          description: "Position of the relay on the Raspberry Pi"
+          type: integer
+          format: int8
+        GPIO:
+          description: "GPIO number to be connected or disconnected"
+          type: integer
+          format: int8
+        device_fence:
+          description: "Devices that cannot be connected when we want to connect this"
+          type: array
+          items:
+            format: ObjectId
+            type: string
+        weather_fence:
+          description: "Relative humidity threshold not to trigger this device"
+          type: integer
+          format: int8
+        timer_fence:
+          description: "Maximum time to be connected"
+          type: integer
+          format: int32
+      required:
+        - name
+        - position
+        - GPIO
+    DeviceUpdateRequest:
+      type: object
+      properties:
+        name:
+          description: "Device name"
+          type: string
+        description:
+          description: "Device description"
+          type: string
+        position:
+          description: "Position of the relay on the Raspberry Pi"
+          type: integer
+          format: int8
+        GPIO:
+          description: "GPIO number to be connected or disconnected"
+          type: integer
+          format: int8
+        device_fence:
+          description: "Devices that cannot be connected when we want to connect this"
+          type: array
+          items:
+            format: ObjectId
+            type: string
+        weather_fence:
+          description: "Relative humidity threshold not to trigger this device"
+          type: integer
+          format: int8
+        timer_fence:
+          description: "Maximum time to be connected"
+          type: integer
+          format: int32
+    DeviceFields:
+      type: object
+      properties:
+        device_id:
+          description: "Device ID with ObjecId format"
+          type: string
+          format: ObjectId
+        status:
+          description: "The device is on or off"
+          type: boolean
+        updated_at:
+          description: "Las time the record has been updated"
+          type: integer
+          format: int32
+        name:
+          description: "Device name"
+          type: string
+        description:
+          description: "Device description"
+          type: string
+        position:
+          description: "Position of the relay on the Raspberry Pi"
+          type: integer
+          format: int8
+        GPIO:
+          description: "GPIO number to be connected or disconnected"
+          type: integer
+          format: int8
+        device_fence:
+          description: "Devices that cannot be connected when we want to connect this"
+          type: array
+          items:
+            format: ObjectId
+            type: string
+        weather_fence:
+          description: "Relative humidity threshold not to trigger this device"
+          type: integer
+          format: int8
+        timer_fence:
+          description: "Maximum time to be connected"
+          type: integer
+          format: int32
+    DeviceList:
+      type: object
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeviceFields"
+    Config:
+      type: object
+      properties:
+        AmazonRootCA1.pem:
+          description: Rood certificate
+          type: string
+        certificate.pem.crt:
+          description: certificate for IoT server
+          type: string
+        private.pem.key:
+          description: RSA private key
+          type: string
+        endpoint:
+          description: IoT server address
+          type: string
+          format: "url"
+        port:
+          description: IoT server port number
+          type: integer
+          format: "int32"
+        desired:
+          description: Topic for getting orders
+          type: string
+        reported:
+          description: Topic for sending back results
+          type: string
+        base:
+          description: Base topic
+          type: string
+    ErrResponse:
+      type: object
+      required:
+        - info
+        - err
+      properties:
+        info:
+          type: string
+        err:
+          type: integer
+          description: "0 - CONFIRMED, 1 - UNCONFIRMED, 2 - FAILED, 3 - EXISTING, 4 - DEVICE_FENCED, 5 - WEATHER_FENCED"
+          enum:
+            - 0
+            - 1
+            - 2
+            - 3
+            - 4
+            - 5
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
