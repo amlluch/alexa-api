@@ -31,6 +31,7 @@ from alexa_api.iot.service import (
 )
 
 
+@serverless
 @inject
 def get_config(event: LambdaEvent, context: LambdaContext, iot_service: IIotService) -> LambdaResponse:
     result = iot_service.get_config()
