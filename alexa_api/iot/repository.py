@@ -9,6 +9,7 @@ from alexa_api.devices.repository import Device, DevicesRepository
 from alexa_api.iot.iot import IotErr
 from datetime import datetime
 from alexa_api.iot import (
+    REPORTED_TOPIC,
     DESIRED_TOPIC,
     OW_ENDPOINT,
     OW_APPID,
@@ -23,8 +24,6 @@ import requests
 
 @runtime_checkable
 class IIotRepository(Protocol):
-    def activate_device(self, event: Dict) -> None:
-        ...
 
     def dispatch_sns(
         self, action: str, status: bool, device_id: ObjectId, event: Dict
@@ -48,21 +47,19 @@ class IIotRepository(Protocol):
     def weather_fence(self, humidity: int) -> bool:
         ...
 
+    def wait_reported(self, device_id: str) -> bool:
+        ...
+
+    def iot_subscribe(self) -> None:
+        ...
+
 
 @inject(alias=IIotRepository)
 class IotRepository(IIotRepository):
     def __init__(self, iot: Any, devices_repository: DevicesRepository):
         self.iot = iot
         self.devices_repository = devices_repository
-
-    def activate_device(self, event: Dict) -> None:
-
-        payload = {"state": {"reported": event["state"]["desired"]}}
-
-        time.sleep(3)
-
-        self.iot.connect()
-        self.iot.publish(DESIRED_TOPIC, json.dumps(payload), 0)
+        self.message_arrived = None
 
     def dispatch_sns(
         self, action: str, status: bool, device_id: ObjectId, event: Dict
@@ -120,6 +117,30 @@ class IotRepository(IIotRepository):
         if result["main"]["humidity"] > humidity:
             return True
         return False
+
+    def iot_subscribe(self) -> None:
+        self.iot.onMessage = self._reported_callback
+        self.iot.connect()
+        self.iot.subscribe(REPORTED_TOPIC, 0, None)
+
+    def wait_reported(self, device_id: str) -> bool:
+        timeout = time.time() + 25
+        while time.time() < timeout:
+            time.sleep(1)
+            # device_id should match and the switch should be off
+            if self.message_arrived:
+                if self.message_arrived["state"]["reported"]["device_id"] == device_id:
+                    if self.message_arrived["state"]["reported"]["is_on"]:
+                        self.message_arrived = None
+                    else:
+                        return True
+                else:
+                    self.message_arrived = None
+
+        return False
+
+    def _reported_callback(self, message):
+        self.message_arrived = json.loads(message.payload.decode("utf-8"))
 
     @staticmethod
     def _get_machine_name(device_id: str) -> str:

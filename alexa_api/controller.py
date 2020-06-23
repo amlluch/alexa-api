@@ -3,6 +3,7 @@ from ask_sdk_core.skill_builder import SkillBuilder
 from typing import Dict, Any
 from kink import inject
 import json
+from alexa_api.iot.iot import StateMachineErr
 
 from alexa_api.intents.alexa_service import (
     LaunchRequestHandler,
@@ -142,12 +143,6 @@ def delete_device(
 
 
 @inject
-def rpi_simulator(event: Dict, context: LambdaContext, iot_service: IIotService):
-    if "desired" in event["state"]:
-        iot_service.activate_device(event)
-
-
-@inject
 def timer_fence(event: LambdaEvent, context: LambdaContext, iot_service: IIotService):
     print("SNS arrived :", event)
     iot_service.timer_fence(json.loads(event["Records"][0]["Sns"]["Message"]))
@@ -176,5 +171,6 @@ def stop_device(
     context: LambdaContext,
     devices_service: DevicesService,
     iot_service: IIotService,
-) -> None:
-    iot_service.stop_device(event["state"]["reported"]["device_id"], event["name"])
+) -> Dict[str, StateMachineErr]:
+    stop_device_result = iot_service.stop_device(event["state"]["reported"]["device_id"], event["name"])
+    return {**event, **{"result": stop_device_result}}

@@ -9,3 +9,10 @@ class IotErr(IntEnum):
     EXISTING = 3
     DEVICE_FENCED = 4
     WEATHER_FENCED = 5
+
+
+@unique
+class StateMachineErr(IntEnum):
+    SUCCESS = 0
+    FAIL = 1
+    ALARM = 2

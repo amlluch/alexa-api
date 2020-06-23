@@ -286,15 +286,18 @@ components:
     Config:
       type: object
       properties:
-        AmazonRootCA1.pem:
-          description: Rood certificate
-          type: string
-        certificate.pem.crt:
-          description: certificate for IoT server
-          type: string
-        private.pem.key:
-          description: RSA private key
-          type: string
+        certificates:
+          type: object
+          properties:
+            AmazonRootCA1.pem:
+              description: Rood certificate
+              type: string
+            certificate.pem.crt:
+              description: certificate for IoT server
+              type: string
+            private.pem.key:
+              description: RSA private key
+              type: string
         endpoint:
           description: IoT server address
           type: string

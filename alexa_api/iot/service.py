@@ -6,7 +6,7 @@ from bson import ObjectId
 from alexa_api.iot.repository import IotRepository
 from alexa_api.devices.repository import DevicesRepository
 from alexa_api.errors import RecordNotFound
-from alexa_api.iot.iot import IotErr
+from alexa_api.iot.iot import IotErr, StateMachineErr
 import boto3
 from alexa_api.iot import TIMER_FENCE_ARN, DESIRED_TOPIC, REPORTED_TOPIC, BASE_TOPIC
 from alexa_api import S3_CERTIFICATES, IOT_ENDPOINT, IOT_PORT
@@ -43,9 +43,6 @@ class IIotService(Protocol):
     def send(self):
         ...
 
-    def activate_device(self, event: Dict) -> None:
-        ...
-
     def dispatch_sns(self, request: IotToSnsDispatcherEvent) -> None:
         ...
 
@@ -55,7 +52,7 @@ class IIotService(Protocol):
     def timer_fence(self, event: Dict) -> None:
         ...
 
-    def stop_device(self, device_id: str, name: str) -> None:
+    def stop_device(self, device_id: str, name: str) -> StateMachineErr:
         ...
 
     def get_config(self) -> Dict:
@@ -69,16 +66,6 @@ class IotService(IIotService):
     ):
         self.iot_repository = iot_repository
         self.devices_repository = devices_repository
-
-    def activate_device(self, event: Dict) -> None:
-
-        device = self.devices_repository.get(
-            ObjectId(event["state"]["desired"]["device_id"])
-        )
-        if not device:
-            raise RecordNotFound("That device doesn't exist")
-
-        self.iot_repository.activate_device(event)
 
     def dispatch_sns(self, event: IotToSnsDispatcherEvent) -> None:
 
@@ -139,18 +126,22 @@ class IotService(IIotService):
             return
         self.iot_repository.start_timer_fence(event, device_id, device.timer_fence)
 
-    def stop_device(self, device_id: str, name: str) -> None:
+    def stop_device(self, device_id: str, name: str) -> StateMachineErr:
         state_machine = boto3.client("stepfunctions")
         response = state_machine.list_executions(stateMachineArn=TIMER_FENCE_ARN, statusFilter='RUNNING')
         for machine in response["executions"]:
             if f"{device_id}-timer_fence" in machine["name"] and machine["name"] != name:
-                return
+                return StateMachineErr.FAIL
+        self.iot_repository.iot_subscribe()
         self.iot_repository.send_order(ObjectId(device_id), False)
+        if self.iot_repository.wait_reported(device_id):
+            return StateMachineErr.SUCCESS
+        return StateMachineErr.ALARM
 
     def get_config(self) -> Dict:
         s3 = boto3.resource("s3")
         bucket = s3.Bucket(S3_CERTIFICATES)
-        certificates = {obj.key: obj.get()['Body'].read().decode('utf-8') for obj in bucket.objects.all()}
+        certificates = {"certificates": {obj.key: obj.get()['Body'].read().decode('utf-8') for obj in bucket.objects.all()}}
         iot_server = {"endpoint": IOT_ENDPOINT, "port": IOT_PORT}
         topics = {"desired": DESIRED_TOPIC, "reported": REPORTED_TOPIC, "base": BASE_TOPIC}
         return {**certificates, **iot_server, **topics}

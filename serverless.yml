@@ -143,7 +143,7 @@ functions:
       - http:
           path: /config
           method: get
- #         private: true
+          private: true
 
   iot_to_sns_dispatcher:
    description: Sends SNS events from any IoT event
@@ -354,33 +354,6 @@ functions:
           path: /change/{device_id}
           method: post
 
-
-  rpi_simulator:
-    description: test
-    module: alexa_api/controller
-    handler: alexa_api.controller.rpi_simulator
-    layers:
-      - {Ref: PythonRequirementsLambdaLayer}
-    iamRoleStatements:
-      - Effect: "Allow"
-        Action:
-          - s3:ListBucket
-        Resource: arn:aws:s3:::${self:custom.certificatesBucket}
-      - Effect: "Allow"
-        Action:
-          - s3:GetObject
-        Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
-      - Effect: Allow
-        Action:
-          - dynamodb:Scan
-          - dynamodb:Query
-        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
-    events:
-      - iot:
-          name: 'require_change_events'
-          sql: "SELECT * FROM '${self:custom.iot.desiredTopic}'"
-          description: 'Alexa asks to change device status'
-
   timer_fence:
     description: checks if the device has a timer and starts it
     module: alexa_api/controller
@@ -453,6 +426,7 @@ functions:
     description: stops a device depending on the timer fence value
     module: alexa_api/controller
     handler: alexa_api.controller.stop_device
+    timeout: 40
     layers:
       - {Ref: PythonRequirementsLambdaLayer}
     iamRoleStatements:
@@ -483,9 +457,25 @@ stepFunctions:
           StopDevice:
             Type: Task
             Resource: ${self:custom.lambdaPrefixArn}:${self:custom.serviceName}_stop_device
-            Next: Completed
+            Next: CheckIotStatus
+          CheckIotStatus:
+            Type: Choice
+            Choices:
+            - Variable: "$.result"
+              NumericEquals: 0
+              Next: Completed
+            - Variable: "$.result"
+              NumericEquals: 1
+              Next: Failed
+            - Variable: "$.result"
+              NumericEquals: 2
+              Next: SendAlarm
           Completed:
             Type: Succeed
+          Failed:
+            Type: Fail
+          SendAlarm:
+            Type: Fail
 
 resources:
   Resources:
