@@ -1,5 +1,5 @@
-deploymentBucket: ${self:provider.region}.packages.io.anonvpn.net
-deploymentDomain: services.io.anonvpn.net
+deploymentBucket: ${self:provider.region}.packages.${self:custom.environment}.aws.anonvpn.net
+serviceDomain: ${self:custom.environment}.aws.anonvpn.net
 serviceName: alexa-api
 logLevel: DEBUG
 region: ${opt:region, "us-east-1"}

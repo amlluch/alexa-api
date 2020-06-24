@@ -9,8 +9,10 @@ package:
 provider:
   name: aws
   runtime: python3.7
-  stage: ${opt:stage, "develop"}
+  stage: ${self:custom.environment}
   stackName: ${self:service}
+  deploymentBucket:
+    name: ${self:custom.deploymentBucket}
   environment:
     ENVIRONMENT: ${self:custom.environment}
     LOG_LEVEL: ${self:custom.logLevel}
@@ -47,10 +49,16 @@ plugins:
   - serverless-iam-roles-per-function
   - serverless-s3-deploy
   - serverless-step-functions
+  - serverless-domain-manager
 
 custom:
   environment: ${opt:stage, "develop"}
   branch: ${opt:branch, 'develop'}
+  customDomain:
+    domainName: ${self:custom.serviceDomain}
+    basePath: ${self:service}
+    stage: ${self:custom.environment}
+    createRoute53Record: false
   databaseTables:
     devicesTable: ${self:custom.serviceName}.devices
     dialogsTable: ${self:custom.serviceName}.dialogs
