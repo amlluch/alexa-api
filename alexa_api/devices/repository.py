@@ -7,6 +7,7 @@ from alexa_api.errors import AWSError
 from bson import ObjectId
 from boto3.dynamodb import conditions
 from alexa_api.errors import RepositoryError, RecordNotFound
+from datetime import datetime
 
 
 @runtime_checkable
@@ -66,6 +67,7 @@ class DevicesRepository(IDevicesRepository):
     def update(self, device: Device) -> None:
 
         device_id = device.device_id
+        device.updated_at = datetime.utcnow()
         record = dict(device.serialize())
         record.pop("device_id")
         update_set_expr = "set " + ", ".join(f"#{k} = :{k}" for k, v in record.items())
@@ -143,11 +145,10 @@ class DevicesRepository(IDevicesRepository):
             position=int(item["position"]),
             GPIO=int(item["GPIO"]),
             status=item.get("status"),
-            weather_fence=int(item.get("weather_fence"))
-            if "weather_fence" in item
-            else 0,
-            timer_fence=int(item.get("timer_fence")) if "timer_fence" in item else 0,
+            weather_fence=int(item.get("weather_fence", 0)),
+            timer_fence=int(item.get("timer_fence", 0)),
             device_fence=self._hydrate_device_fence(item.get("device_fence")),
+            updated_at=item.get("updated_at", datetime.utcnow())
         )
 
     @staticmethod

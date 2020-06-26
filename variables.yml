@@ -4,6 +4,7 @@ serviceName: alexa-api
 logLevel: DEBUG
 region: ${opt:region, "us-east-1"}
 certificatesBucket: ${self:custom.serviceName}-${self:custom.environment}-certs
+clientCertificatesBucket: ${self:custom.serviceName}-${self:custom.environment}-client-certs
 certs:
   caRoot: AmazonRootCA1.pem
   privatePem: private.pem.key

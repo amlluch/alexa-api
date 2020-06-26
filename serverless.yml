@@ -21,6 +21,7 @@ provider:
     DB_DEVICES_TABLE: ${self:custom.databaseTables.devicesTable}
     DB_INTENTS_TABLE: ${self:custom.databaseTables.dialogsTable}
     S3_CERTIFICATES: ${self:custom.certificatesBucket}
+    S3_CLIENT_CERTIFICATES: ${self:custom.clientCertificatesBucket}
     IOT_CA_ROOT: ${self:custom.certs.caRoot}
     IOT_PRIV_PEM: ${self:custom.certs.privatePem}
     IOT_CERT_PEM: ${self:custom.certs.certificatePem}
@@ -112,6 +113,13 @@ custom:
               - '**/*.pem'
               - '**/*.crt'
               - '**/*.key'
+      - bucket: ${self:custom.clientCertificatesBucket}
+        files:
+          - source: client_certificates/
+            globs:
+              - '**/*.pem'
+              - '**/*.crt'
+              - '**/*.key'
 
   iamRoleStatements:
     - Effect: Allow
@@ -142,11 +150,16 @@ functions:
       - Effect: "Allow"
         Action:
           - s3:ListBucket
-        Resource: arn:aws:s3:::${self:custom.certificatesBucket}
+        Resource:
+          - arn:aws:s3:::${self:custom.certificatesBucket}
+          - arn:aws:s3:::${self:custom.clientCertificatesBucket}
+
       - Effect: "Allow"
         Action:
           - s3:GetObject
-        Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
+        Resource:
+          - arn:aws:s3:::${self:custom.certificatesBucket}/*
+          - arn:aws:s3:::${self:custom.clientCertificatesBucket}/*
     events:
       - http:
           path: /config
@@ -173,12 +186,26 @@ functions:
          - SNS:Publish
          - SNS:SetTopicAttributes
        Resource: arn:aws:sns:#{AWS::Region}:#{AWS::AccountId}:DeviceChanged
-     - Effect: Allow
+     - Effect: "Allow"
        Action:
          - dynamodb:Scan
          - dynamodb:Query
          - dynamodb:UpdateItem
        Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
+     - Effect: "Allow"
+       Action:
+        - iot:Publish
+        - iot:Connect
+        - iot:Subscribe
+        - iot:Receive
+       Resource:
+        - arn:aws:iot:#{AWS::Region}:#{AWS::AccountId}:topicfilter/${self:custom.iot.baseTopic}/*
+        - arn:aws:iot:#{AWS::Region}:#{AWS::AccountId}:topic/${self:custom.iot.baseTopic}/*
+        - arn:aws:iot:#{AWS::Region}:#{AWS::AccountId}:client/${self:custom.iot.clientId}
+     - Effect: Allow
+       Action:
+         - lambda:InvokeFunction
+       Resource: '*'
    environment:
      SNS_ARN: arn:aws:sns:#{AWS::Region}:#{AWS::AccountId}:DeviceChanged
    events:
@@ -194,13 +221,13 @@ functions:
    layers:
      - {Ref: PythonRequirementsLambdaLayer}
    iamRoleStatements:
-    - Effect: Allow
+    - Effect: "Allow"
       Action:
        - dynamodb:Scan
        - dynamodb:Query
        - dynamodb:PutItem
       Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
-    - Effect: Allow
+    - Effect: "Allow"
       Action:
         - dynamodb:Scan
         - dynamodb:Query
@@ -225,13 +252,13 @@ functions:
     layers:
       - {Ref: PythonRequirementsLambdaLayer}
     iamRoleStatements:
-      - Effect: Allow
+      - Effect: "Allow"
         Action:
           - dynamodb:Scan
           - dynamodb:Query
           - dynamodb:UpdateItem
         Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
-      - Effect: Allow
+      - Effect: "Allow"
         Action:
           - dynamodb:Scan
           - dynamodb:Query
@@ -256,7 +283,7 @@ functions:
     layers:
       - {Ref: PythonRequirementsLambdaLayer}
     iamRoleStatements:
-      - Effect: Allow
+      - Effect: "Allow"
         Action:
           - dynamodb:DeleteItem
           - dynamodb:Scan
@@ -283,12 +310,12 @@ functions:
     layers:
       - {Ref: PythonRequirementsLambdaLayer}
     iamRoleStatements:
-      - Effect: Allow
+      - Effect: "Allow"
         Action:
           - dynamodb:Scan
           - dynamodb:Query
         Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
-      - Effect: Allow
+      - Effect: "Allow"
         Action:
           - dynamodb:Scan
           - dynamodb:Query
@@ -313,7 +340,7 @@ functions:
     layers:
       - {Ref: PythonRequirementsLambdaLayer}
     iamRoleStatements:
-      - Effect: Allow
+      - Effect: "Allow"
         Action:
           - dynamodb:Scan
         Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
@@ -338,7 +365,7 @@ functions:
     layers:
       - {Ref: PythonRequirementsLambdaLayer}
     iamRoleStatements:
-      - Effect: Allow
+      - Effect: "Allow"
         Action:
           - dynamodb:Scan
           - dynamodb:Query
@@ -353,10 +380,14 @@ functions:
         Resource: arn:aws:s3:::${self:custom.certificatesBucket}/*
       - Effect: "Allow"
         Action:
-          - iot:subscribe
+          - iot:Publish
+          - iot:Connect
+          - iot:Subscribe
+          - iot:Receive
         Resource:
-          - arn:aws:iot:#{AWS::Region}:#{AWS::AccountId}:topicfilter/device/desired
-          - arn:aws:iot:#{AWS::Region}:#{AWS::AccountId}:topicfilter/device/reported
+          - arn:aws:iot:#{AWS::Region}:#{AWS::AccountId}:topicfilter/${self:custom.iot.baseTopic}/*
+          - arn:aws:iot:#{AWS::Region}:#{AWS::AccountId}:topic/${self:custom.iot.baseTopic}/*
+          - arn:aws:iot:#{AWS::Region}:#{AWS::AccountId}:client/${self:custom.iot.clientId}
     events:
       - http:
           path: /change/{device_id}
@@ -382,7 +413,7 @@ functions:
           - states:StartExecution
           - states:ListExecutions
         Resource: ${self:custom.timerFenceStateMachineArn}
-      - Effect: Allow
+      - Effect: "Allow"
         Action:
           - dynamodb:Query
         Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.devicesTable}*
@@ -400,16 +431,16 @@ functions:
     description: Alexa skill controller
     module: alexa_api/controller
     handler: alexa_api.controller.skill_handler
-    timeout: 30
+    timeout: 50
     layers:
       - {Ref: PythonRequirementsLambdaLayer}
     iamRoleStatements:
-      - Effect: Allow
+      - Effect: "Allow"
         Action:
           - dynamodb:Scan
           - dynamodb:Query
         Resource: arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/${self:custom.databaseTables.dialogsTable}*
-      - Effect: Allow
+      - Effect: "Allow"
         Action:
           - dynamodb:Scan
           - dynamodb:Query
@@ -434,7 +465,7 @@ functions:
     description: stops a device depending on the timer fence value
     module: alexa_api/controller
     handler: alexa_api.controller.stop_device
-    timeout: 40
+    timeout: 50
     layers:
       - {Ref: PythonRequirementsLambdaLayer}
     iamRoleStatements:
@@ -450,6 +481,16 @@ functions:
         Action:
           - states:ListExecutions
         Resource: ${self:custom.timerFenceStateMachineArn}
+      - Effect: "Allow"
+        Action:
+          - iot:Publish
+          - iot:Connect
+          - iot:Subscribe
+          - iot:Receive
+        Resource:
+          - arn:aws:iot:#{AWS::Region}:#{AWS::AccountId}:topicfilter/${self:custom.iot.baseTopic}/*
+          - arn:aws:iot:#{AWS::Region}:#{AWS::AccountId}:topic/${self:custom.iot.baseTopic}/*
+          - arn:aws:iot:#{AWS::Region}:#{AWS::AccountId}:client/${self:custom.iot.clientId}
 
 stepFunctions:
   stateMachines:
@@ -553,6 +594,11 @@ resources:
       DeletionPolicy: Retain
       Properties:
         BucketName: ${self:custom.certificatesBucket}
+    S3ClientBucket:
+      Type: AWS::S3::Bucket
+      DeletionPolicy: Retain
+      Properties:
+        BucketName: ${self:custom.clientCertificatesBucket}
 
     SNSTopic:
       Type: AWS::SNS::Topic

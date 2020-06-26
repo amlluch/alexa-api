@@ -9,7 +9,8 @@ from alexa_api.errors import RecordNotFound
 from alexa_api.iot.iot import IotErr, StateMachineErr
 import boto3
 from alexa_api.iot import TIMER_FENCE_ARN, DESIRED_TOPIC, REPORTED_TOPIC, BASE_TOPIC
-from alexa_api import S3_CERTIFICATES, IOT_ENDPOINT, IOT_PORT
+from alexa_api import S3_CLIENT_CERTIFICATES, IOT_ENDPOINT, IOT_PORT
+from AWSIoTPythonSDK.core.protocol.mqtt_core import connectTimeoutException
 
 
 @dataclass
@@ -132,15 +133,19 @@ class IotService(IIotService):
         for machine in response["executions"]:
             if f"{device_id}-timer_fence" in machine["name"] and machine["name"] != name:
                 return StateMachineErr.FAIL
-        self.iot_repository.iot_subscribe()
-        self.iot_repository.send_order(ObjectId(device_id), False)
-        if self.iot_repository.wait_reported(device_id):
+        try:
+            self.iot_repository.iot_subscribe()
+            self.iot_repository.send_order(ObjectId(device_id), False)
+        except connectTimeoutException:
+            print("Timeout")
+            return StateMachineErr.ALARM
+        if self.iot_repository.wait_reported(device_id, False):
             return StateMachineErr.SUCCESS
         return StateMachineErr.ALARM
 
     def get_config(self) -> Dict:
         s3 = boto3.resource("s3")
-        bucket = s3.Bucket(S3_CERTIFICATES)
+        bucket = s3.Bucket(S3_CLIENT_CERTIFICATES)
         certificates = {"certificates": {obj.key: obj.get()['Body'].read().decode('utf-8') for obj in bucket.objects.all()}}
         iot_server = {"endpoint": IOT_ENDPOINT, "port": IOT_PORT}
         topics = {"desired": DESIRED_TOPIC, "reported": REPORTED_TOPIC, "base": BASE_TOPIC}

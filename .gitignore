@@ -79,6 +79,7 @@ target/
 #credentials
 .alexa-credentials
 certificates/
+client_certificates/
 
 # celery beat schedule file
 celerybeat-schedule

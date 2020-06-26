@@ -47,7 +47,7 @@ class IIotRepository(Protocol):
     def weather_fence(self, humidity: int) -> bool:
         ...
 
-    def wait_reported(self, device_id: str) -> bool:
+    def wait_reported(self, device_id: str, status: bool) -> bool:
         ...
 
     def iot_subscribe(self) -> None:
@@ -64,7 +64,7 @@ class IotRepository(IIotRepository):
     def dispatch_sns(
         self, action: str, status: bool, device_id: ObjectId, event: Dict
     ) -> None:
-
+        print("Me ha llegado un IoT")
         client = boto3.client("sns")
         arn = SNS_ARN
         message_attributes = {
@@ -78,14 +78,15 @@ class IotRepository(IIotRepository):
             MessageStructure="json",
             MessageAttributes=message_attributes,
         )
+        print("Envio un SNS")
 
     def send_order(self, device_id: ObjectId, status: bool) -> None:
         payload = {"state": {"desired": {"is_on": status, "device_id": str(device_id)}}}
         self.iot.connect()
-        self.iot.publish(DESIRED_TOPIC, json.dumps(payload), 0)
+        self.iot.publish(DESIRED_TOPIC, json.dumps(payload), 1)
 
     def confirm_status(
-        self, current_device: Device, desired_status: bool, timeout: int
+        self, current_device: Device, desired_status: bool, timeout: int = 25
     ) -> Dict:
         max_time = time.time() + timeout
         while time.time() < max_time:
@@ -120,22 +121,22 @@ class IotRepository(IIotRepository):
 
     def iot_subscribe(self) -> None:
         self.iot.onMessage = self._reported_callback
+        self.iot.subscribe(REPORTED_TOPIC, 1, None)
         self.iot.connect()
-        self.iot.subscribe(REPORTED_TOPIC, 0, None)
 
-    def wait_reported(self, device_id: str) -> bool:
+    def wait_reported(self, device_id: str, status: bool) -> bool:
         timeout = time.time() + 25
         while time.time() < timeout:
-            time.sleep(1)
             # device_id should match and the switch should be off
             if self.message_arrived:
                 if self.message_arrived["state"]["reported"]["device_id"] == device_id:
-                    if self.message_arrived["state"]["reported"]["is_on"]:
+                    if self.message_arrived["state"]["reported"]["is_on"] != status:
                         self.message_arrived = None
                     else:
                         return True
                 else:
                     self.message_arrived = None
+            time.sleep(1)
 
         return False
 
