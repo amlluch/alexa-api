@@ -35,7 +35,7 @@ class AlexaRepository(IAlexaRepository):
         if result["ResponseMetadata"]["HTTPStatusCode"] not in range(200, 300):
             raise AlexaRepositoryError("error occurred when retrieving dialog details")
 
-        if len(result["Items"] > 1):
+        if len(result["Items"]) > 1:
             for item in result["Items"]:
                 if item["locale"] == locale:
                     return self._hydrate_record(item)
